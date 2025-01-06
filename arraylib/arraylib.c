@@ -33,9 +33,6 @@ size_t *copy_size_t(size_t *dst, size_t *src, size_t size) {
 }
 
 size_t compute_flat_index(size_t *index, size_t *stride, size_t ndim) {
-  if (ndim == 1)
-    return index[0];
-
   size_t flat_index = 0;
   for (size_t i = 0; i < ndim; i++)
     flat_index += index[i] * stride[i];
@@ -204,7 +201,7 @@ f32 array_get_scalar_from_index(NDArray *array, size_t *index) {
 }
 
 NDArray *array_get_view_from_range(NDArray *array, size_t *start, size_t *end,
-                                 size_t *step) {
+                                   size_t *step) {
   for (size_t i = 0; i < array->ndim; i++) {
     assert(start[i] < end[i] && start[i] >= 0 && end[i] <= array->shape[i]);
     assert(step[i] > 0);
@@ -235,7 +232,7 @@ NDArray *array_set_scalar_from_index(NDArray *array, size_t *index, f32 value) {
 }
 
 NDArray *array_set_view_from_range(NDArray *array, f32 value, size_t *start,
-                                 size_t *end, size_t *step) {
+                                   size_t *end, size_t *step) {
   for (size_t i = 0; i < array->ndim; i++) {
     assert(start[i] < end[i] && start[i] >= 0 && end[i] <= array->shape[i]);
     assert(step[i] > 0);
@@ -363,8 +360,8 @@ NDArray *array_scalar_pow(NDArray *lhs, f32 rhs) {
 // MATMUL
 // ------------------------------------------------------------------
 
-void block_matmul(NDArray *dst, NDArray *lhs, NDArray *rhs, size_t i0, size_t j0,
-                  size_t k0, size_t imax, size_t jmax, size_t kmax) {
+void block_matmul(NDArray *dst, NDArray *lhs, NDArray *rhs, size_t i0,
+                  size_t j0, size_t k0, size_t imax, size_t jmax, size_t kmax) {
   for (size_t i = i0; i < imax; i++) {
     for (size_t j = j0; j < jmax; j++) {
       f32 sum = array_get_scalar_from_index(dst, (size_t[]){i, j});
