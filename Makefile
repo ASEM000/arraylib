@@ -5,6 +5,7 @@ CFLAGS = -Wall -fPIC
 # Target shared library
 TARGET = arraylib/src/arraylib.so
 SOURCES = arraylib/src/arraylib.c
+LDFLAGS = -lm
 
 # Include directories
 INCLUDES = -I./arraylib/src
@@ -23,7 +24,7 @@ all: shared docs
 
 # Build the shared library
 shared: $(SOURCES)
-	$(CC) $(CFLAGS) $(INCLUDES) -shared -o $(TARGET) $(SOURCES)
+	$(CC) $(CFLAGS) $(INCLUDES) -shared -o $(TARGET) $(SOURCES) $(LDFLAGS)
 
 # Generate documentation
 docs:
