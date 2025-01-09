@@ -26,86 +26,142 @@ typedef struct {
   size_t *stride;
   size_t ndim;
   size_t offset;
-  bool is_copy;
+  bool view;
 } NDArray;
+
+typedef struct {
+  f32 *ptr;
+  size_t *shape;
+  size_t *stride;
+  size_t *bstride;
+  size_t *index;
+  size_t *dims;
+  size_t counter;
+  size_t size;
+  size_t ndim;
+} NDIterator;
+
 
 // ------------------------------------------------------------------
 // FUNCTION DECLARATIONS
 // ------------------------------------------------------------------
 
-// Memory allocators
-static void *alloc(size_t size);
+// ------------------------------------------------------------------
+// MEMORY ALLOCATORS
+// ------------------------------------------------------------------
 
-// Utils
-static size_t prod(size_t *nums, size_t ndim);
-static size_t *create_size_t(size_t ndim);
-static size_t *copy_size_t(size_t *dst, size_t *src, size_t size);
-static inline size_t compute_flat_index(size_t *index, size_t *stride,
-                                        size_t ndim);
-static inline size_t *compute_multi_index(size_t *dst, size_t flat_index,
-                                          size_t *shape, size_t ndim);
+void *alloc(size_t size);
+
+// ------------------------------------------------------------------
+// UTILS
+// ------------------------------------------------------------------
+
+size_t prod(size_t *nums, size_t ndim);
+size_t *size_t_create(size_t ndim);
+size_t *size_t_set(size_t *dst, size_t value, size_t size);
+size_t *size_t_copy(size_t *dst, size_t *src, size_t size);
+size_t flat_index(size_t *index, size_t *stride, size_t ndim);
+f32 clamp(f32 value, f32 minval, f32 maxval);
 bool is_contiguous(NDArray *array);
-static size_t cdiv(size_t a, size_t b);
-static size_t *create_stride_from_shape(size_t *dst, size_t *shape,
-                                        size_t ndim);
+size_t cdiv(size_t a, size_t b);
+size_t *stride_from_shape(size_t *dst, size_t *shape, size_t ndim);
+size_t *bstride_from_shape(size_t *dst, size_t *shape, size_t *stride,
+                           size_t ndim);
 
-// Data
-static Data *data_empty(size_t size);
+// ------------------------------------------------------------------
+// DATA
+// ------------------------------------------------------------------
 
-f32 array_get_scalar_from_index(NDArray *array, size_t *index);
-NDArray *array_get_view_from_range(NDArray *array, size_t *start, size_t *end,
-                                 size_t *step);
-NDArray *array_set_scalar_from_index(NDArray *array, size_t *index, f32 value);
-NDArray *array_set_view_from_range(NDArray *array, f32 value, size_t *start,
-                                 size_t *end, size_t *step);
+Data *data_empty(size_t size);
 
-// NDArray creation and destruction
+// ------------------------------------------------------------------
+// ARRAY CREATION AND DESTRUCTION
+// ------------------------------------------------------------------
+
 NDArray *array_empty(size_t *shape, size_t ndim);
 void array_free(NDArray *array);
+
+// ------------------------------------------------------------------
+// ITERATOR
+// ------------------------------------------------------------------
+
+NDIterator iterator_create(f32 *ptr, size_t *shape, size_t *stride, size_t *dims,
+                         size_t ndim);
+NDIterator array_iter(NDArray *array);
+NDIterator array_iter_axis(NDArray *array, size_t dim, size_t index);
+void iterator_free(NDIterator *iterator);
+bool iterator_iterate(NDIterator *iter);
+
+// ------------------------------------------------------------------
+// COPY
+// ------------------------------------------------------------------
+
 NDArray *array_shallow_copy(NDArray *array);
 NDArray *array_deep_copy(NDArray *array);
+
+// ------------------------------------------------------------------
+// INITIALIZATION
+// ------------------------------------------------------------------
+
 NDArray *array_zeros(size_t *shape, size_t ndim);
 NDArray *array_fill(f32 *elems, size_t *shape, size_t ndim);
 NDArray *array_ones(size_t *shape, size_t ndim);
 NDArray *array_arange(f32 start, f32 end, f32 step);
 NDArray *array_linspace(f32 start, f32 end, f32 n);
 
-// Reshaping
+// ------------------------------------------------------------------
+// GETTERS
+// ------------------------------------------------------------------
+
+f32 array_get_scalar_from_index(NDArray *array, size_t *index);
+NDArray *array_get_view_from_range(NDArray *array, size_t *start, size_t *end,
+                                   size_t *step);
+
+// ------------------------------------------------------------------
+// SETTERS
+// ------------------------------------------------------------------
+
+NDArray *array_set_scalar_from_index(NDArray *array, size_t *index, f32 value);
+NDArray *array_set_scalar_from_range(NDArray *array, size_t *start, size_t *end,
+                                     size_t *step, f32 value);
+NDArray *array_set_view_from_array(NDArray *array, size_t *start, size_t *end,
+                                   size_t *step, NDArray *value);
+
+// ------------------------------------------------------------------
+// RESHAPING
+// ------------------------------------------------------------------
+
 NDArray *array_reshape(NDArray *array, size_t *shape, size_t ndim);
-NDArray *array_expand_leading_axis(NDArray *array);
 NDArray *array_transpose(NDArray *array, size_t *dst);
 NDArray *array_ravel(NDArray *array);
 
-// Binary functions
-static f32 add32(f32 lhs, f32 rhs);
-static f32 sub32(f32 lhs, f32 rhs);
-static f32 mul32(f32 lhs, f32 rhs);
-static f32 div32(f32 lhs, f32 rhs);
-static f32 eq32(f32 lhs, f32 rhs);
-static f32 neq32(f32 lhs, f32 rhs);
-static f32 geq32(f32 lhs, f32 rhs);
-static f32 leq32(f32 lhs, f32 rhs);
-static f32 gt32(f32 lhs, f32 rhs);
-static f32 lt32(f32 lhs, f32 rhs);
+// ------------------------------------------------------------------
+// ARRAY-SCALAR OPERATIONS
+// ------------------------------------------------------------------
 
-// NDArray-scalar operations
 NDArray *array_scalar_op(NDArray *lhs, f32 rhs, binop fn);
 NDArray *array_scalar_add(NDArray *lhs, f32 rhs);
 NDArray *array_scalar_sub(NDArray *lhs, f32 rhs);
 NDArray *array_scalar_mul(NDArray *lhs, f32 rhs);
 NDArray *array_scalar_div(NDArray *lhs, f32 rhs);
 NDArray *array_scalar_pow(NDArray *lhs, f32 rhs);
-NDArray *array_scalar_log(NDArray *lhs, f32 rhs);
 
-// NDArray-array operations
+// ------------------------------------------------------------------
+// MATMUL
+// ------------------------------------------------------------------
+
 NDArray *array_array_matmul(NDArray *lhs, NDArray *rhs);
+
+// ------------------------------------------------------------------
+// ARRAY-ARRAY OPERATIONS
+// ------------------------------------------------------------------
+
 NDArray *array_array_scalar_op(NDArray *lhs, NDArray *rhs, binop fn);
 NDArray *array_array_add(NDArray *lhs, NDArray *rhs);
 NDArray *array_array_sub(NDArray *lhs, NDArray *rhs);
 NDArray *array_array_mul(NDArray *lhs, NDArray *rhs);
 NDArray *array_array_div(NDArray *lhs, NDArray *rhs);
 NDArray *array_array_pow(NDArray *lhs, NDArray *rhs);
-NDArray *array_array_dot(NDArray *lhs, NDArray *rhs);
 
 // Comparison
 NDArray *array_array_eq(NDArray *lhs, NDArray *rhs);
@@ -115,11 +171,19 @@ NDArray *array_array_geq(NDArray *lhs, NDArray *rhs);
 NDArray *array_array_lt(NDArray *lhs, NDArray *rhs);
 NDArray *array_array_leq(NDArray *lhs, NDArray *rhs);
 
-// unary
+// ------------------------------------------------------------------
+// ELEMENTWISE OPERATIONS
+// ------------------------------------------------------------------
+
 NDArray *array_op(NDArray *array, uniop fn);
 NDArray *array_log(NDArray *array);
-NDArray *array_neg(NDArray* array);
-NDArray *array_exp(NDArray* array);
+NDArray *array_neg(NDArray *array);
+NDArray *array_exp(NDArray *array);
+
+// ------------------------------------------------------------------
+// REDUCTION OPERATIONS
+// ------------------------------------------------------------------
+NDArray *array_array_dot(NDArray *lhs, NDArray *rhs);
 """
 )
 
@@ -132,4 +196,4 @@ ffi.set_source(
     include_dirs=["."]
 )
 
-lib = ffi.dlopen(os.path.join(Path(__file__).parent, "arraylib.so"))
+lib = ffi.dlopen(os.path.join(Path(__file__).parent, "src", "arraylib.so"))

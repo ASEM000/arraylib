@@ -160,3 +160,4 @@ cython_debug/
 #.idea/
 test.ipynb
 arraylib/.DS_Store
+.vscode/settings.json
