@@ -15,10 +15,12 @@ from arraylib.core import (
     lt,
     geq,
     gt,
-    to_buffer,
-    from_buffer,
+    tobuffer,
+    frombuffer,
+    tonumpy,
     exp,
     log,
+    copy,
 )
 from arraylib.arraytypes import NDArray, JVPNDArray
 import arraylib.impl as impl
@@ -43,12 +45,14 @@ __all__ = [
     "lt",
     "geq",
     "gt",
-    "to_buffer",
-    "from_buffer",
+    "tobuffer",
+    "frombuffer",
+    "tonumpy",
     "exp",
     "log",
     "ffi",
     "lib",
     "NDArray",
     "JVPNDArray",
+    "copy",
 ]

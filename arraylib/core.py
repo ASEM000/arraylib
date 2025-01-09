@@ -71,18 +71,29 @@ def linspace(start: int, end: int, n: int):
     return arraylib.NDArray(buffer=lib.array_linspace(start, end, n))
 
 
-def to_buffer(array: arraylib.NDArray):
+def tobuffer(array: arraylib.NDArray):
     array = array.buffer
     return ffi.buffer(array.data.mem, array.data.size * 4)
 
 
-def from_buffer(buffer):
+def frombuffer(buffer):
     size = len(buffer) // 4  # float size
     data = ffi.new("float[]", size)
     for i in range(size):
         data[i] = buffer[i]
     size = ffi.new("size_t[]", (size,))
     return arraylib.NDArray(buffer=lib.array_fill(data, size, 1))
+
+
+def tonumpy(array: arraylib.NDArray):
+    import numpy as np
+
+    return np.ndarray(
+        buffer=tobuffer(array),
+        shape=array.shape,
+        dtype=np.float32,
+        strides=[s * 4 for s in array.stride],
+    )
 
 
 # binary operations
@@ -121,10 +132,13 @@ def matmul(lhs, rhs):
 
 
 def dot(lhs, rhs):
+    assert lhs.ndim == 1 and rhs.ndim == 1, "dot product requires 1D arrays"
     return primitive.dot_p(lhs, rhs)
 
 
+# ------------------------------------------------------------------
 # unary operations
+# ------------------------------------------------------------------
 
 
 def log(lhs):
@@ -139,7 +153,9 @@ def exp(lhs):
     return primitive.exp_p(lhs)
 
 
+# ------------------------------------------------------------------
 # reshaping
+# ------------------------------------------------------------------
 
 
 def reshape(array, shape: tp.Sequence[int]):
@@ -164,7 +180,9 @@ def ravel(array):
     return primitive.ravel_p(array)
 
 
-# comparison operations
+# ------------------------------------------------------------------
+# comparison
+# ------------------------------------------------------------------
 
 
 def eq(lhs, rhs):
@@ -191,7 +209,9 @@ def gt(lhs, rhs):
     return primitive.gt_p(lhs, rhs)
 
 
-# getter and setter
+# ------------------------------------------------------------------
+# getter
+# ------------------------------------------------------------------
 
 
 def get_view_from_range(
@@ -256,10 +276,10 @@ def set_scalar_from_index(array, index: tp.Sequence[int], value: int):
     assert len(index) == array.ndim
     assert all(idx < array.shape[i] for i, idx in enumerate(index))
     index = tuple(index)
-    return primitive.setitem_p(array, index, value)
+    return primitive.set_scalar_from_index_p(array, index, value)
 
 
-def set_view_from_range(
+def set_scalar_from_range(
     array,
     start: tuple[int, ...],
     end: tuple[int, ...],
@@ -275,18 +295,38 @@ def set_view_from_range(
     assert len(start) == len(end) == len(step) == array.ndim
     shape = array.shape
     assert all(0 <= si < ei <= shape[i] for i, (si, ei) in enumerate(zip(start, end)))
-    return primitive.set_view_from_range_p(array, start, end, step, value)
+    return primitive.set_scalar_from_range_p(array, start, end, step, value)
 
 
-def setitem(array, index: int | slice | tp.Sequence[int | slice], value: int):
+def set_view_from_array(
+    array,
+    start: tuple[int, ...],
+    end: tuple[int, ...],
+    step: tuple[int, ...],
+    value: arraylib.NDArray,
+):
+    assert isinstance(start, tuple)
+    assert isinstance(end, tuple)
+    assert isinstance(step, tuple)
+    assert all(isinstance(i, int) for i in start)
+    assert all(isinstance(i, int) for i in end)
+    assert all(isinstance(i, int) for i in step)
+    assert len(start) == len(end) == len(step) == value.ndim
+    return primitive.set_view_from_array_p(array, start, end, step, value)
+
+
+def setitem(array, index: int | slice | tp.Sequence[int | slice], value: float):
     index: tuple[tp.Any] = normalize_index(index)
     assert len(index) == array.ndim, "full index required to match ndim"
-    assert all(isinstance(i, int) for i in index)
     if all(isinstance(i, int) for i in index):
         return set_scalar_from_index(array, index, value)
     if all(isinstance(i, slice) for i in index):
         start, end, step = slice_to_range(array.shape, array.ndim, index)
-        return primitive.set_view_from_range_p(array, start, end, step, value)
+        if isinstance(value, arraylib.NDArray):
+            return set_view_from_array(array, start, end, step, value)
+        if isinstance(value, float):
+            print(start, end, step, value)
+            return primitive.set_scalar_from_range_p(array, start, end, step, value)
     return primitive.setitem_p(array, index, value)
 
 
@@ -302,5 +342,8 @@ def ppstr(array):
     return primitive.str_p(array)
 
 
-def copy(array):
+def copy(array, deep=False):
+    array = array.buffer
+    if deep:
+        return arraylib.NDArray(lib.array_deep_copy(array))
     return lib.array_shallow_copy(array)

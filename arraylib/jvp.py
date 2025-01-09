@@ -100,7 +100,7 @@ def _(lhs, rhs):
     x, y = lhs.primal, rhs.primal
     dx, dy = lhs.tangent, rhs.tangent
     primal = x**y
-    tangent = y * x ** (y - 1.) * dx
+    tangent = y * x ** (y - 1.0) * dx
     tangent += primal * core.log(x) * dy
     return JVPNDArray(primal, tangent)
 

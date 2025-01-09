@@ -172,10 +172,22 @@ def _(array, index: tuple[int]) -> float:
     return lib.array_get_scalar_from_index(array.buffer, index)
 
 
-@primitive.set_view_from_range_p.register(NDArray)
-def _(array, index: tuple[int, ...], value: int) -> NDArray:
-    index = ffi.new("size_t[]", index)
-    lib.array_set_view_from_index(array.buffer, index, value)
+@primitive.set_scalar_from_range_p.register(NDArray)
+def _(
+    array,
+    start: tuple[int, ...],
+    end: tuple[int, ...],
+    step: tuple[int, ...],
+    value: float,
+) -> NDArray:
+    assert isinstance(value, float), type(value)
+    assert isinstance(start, tuple), type(start)
+    assert isinstance(end, tuple), type(end)
+    assert isinstance(step, tuple), type(step)
+    start = ffi.new("size_t[]", start)
+    end = ffi.new("size_t[]", end)
+    step = ffi.new("size_t[]", step)
+    lib.array_set_scalar_from_range(array.buffer, start, end, step, value)
     return array
 
 
@@ -185,6 +197,19 @@ def _(array, index: tuple[int, ...], value: int) -> NDArray:
     lib.array_set_scalar_from_index(array.buffer, index, value)
     return array
 
+@primitive.set_view_from_array_p.register(NDArray)
+def _(
+    array,
+    start: tuple[int, ...],
+    end: tuple[int, ...],
+    step: tuple[int, ...],
+    value: NDArray,
+) -> NDArray:
+    start = ffi.new("size_t[]", start)
+    end = ffi.new("size_t[]", end)
+    step = ffi.new("size_t[]", step)
+    lib.array_set_view_from_array(array.buffer, start, end, step, value.buffer)
+    return array
 
 # repr and str
 
@@ -210,7 +235,7 @@ def _(array) -> str:
             recurse(index + [i], depth + 1)
             if i < shape[depth] - 1:
                 out.write(", ")
-        out.write("]")
+        out.write("]\n")
 
     recurse([], 0)
     return out.getvalue()
