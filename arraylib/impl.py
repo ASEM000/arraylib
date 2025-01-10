@@ -10,7 +10,7 @@ from arraylib import core
 
 @primitive.add_p.register(NDArray, NDArray)
 def _(lhs, rhs) -> NDArray:
-    return NDArray(buffer=lib.array_array_add(lhs.buffer, rhs.buffer))
+    return NDArray(buffer=lib.array_array_sum(lhs.buffer, rhs.buffer))
 
 
 @primitive.add_p.register(NDArray, float)
@@ -111,7 +111,6 @@ def _(lhs, dst: tuple[int, ...]) -> NDArray:
     dst = dst = ffi.new("size_t[]", dst)
     return NDArray(buffer=lib.array_transpose(lhs.buffer, dst))
 
-
 @primitive.ravel_p.register(NDArray)
 def _(array) -> NDArray:
     return NDArray(buffer=lib.array_ravel(array.buffer))
@@ -197,6 +196,7 @@ def _(array, index: tuple[int, ...], value: int) -> NDArray:
     lib.array_set_scalar_from_index(array.buffer, index, value)
     return array
 
+
 @primitive.set_view_from_array_p.register(NDArray)
 def _(
     array,
@@ -210,6 +210,7 @@ def _(
     step = ffi.new("size_t[]", step)
     lib.array_set_view_from_array(array.buffer, start, end, step, value.buffer)
     return array
+
 
 # repr and str
 
@@ -245,3 +246,27 @@ def _(array) -> str:
 def _(array):
     lib.array_free(array.buffer)
     del array
+
+
+# reductions
+
+
+@primitive.reduce_sum_p.register(NDArray)
+def _(array, dims) -> float:
+    ndim = len(dims)
+    dims = ffi.new("size_t[]", dims)
+    return NDArray(buffer=lib.array_reduce_sum(array.buffer, dims, ndim))
+
+
+@primitive.reduce_max_p.register(NDArray)
+def _(array, dims) -> float:
+    ndim = len(dims)
+    dims = ffi.new("size_t[]", dims)
+    return NDArray(buffer=lib.array_reduce_max(array.buffer, dims, ndim))
+
+
+@primitive.reduce_min_p.register(NDArray)
+def _(array, dims) -> float:
+    ndim = len(dims)
+    dims = ffi.new("size_t[]", dims)
+    return NDArray(buffer=lib.array_reduce_min(array.buffer, dims, ndim))
