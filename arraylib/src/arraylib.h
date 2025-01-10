@@ -2,7 +2,7 @@
 #define ARRAYLIB_H
 
 #define BLOCK_SIZE 32
-#define ITERDIM (size_t)(-1)
+
 #include <assert.h>
 #include <math.h>
 #include <stdbool.h>
@@ -11,6 +11,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#define ITERDIM SIZE_MAX
 
 // -------------------------------------------------------------------------------------------------
 // STRUCTS/TYPEDEFS
@@ -30,6 +31,7 @@ typedef struct {
     Data* data;
     size_t* shape;
     size_t* stride;
+    size_t* bstride;
     size_t ndim;
     size_t offset;
     bool view;
@@ -69,8 +71,8 @@ size_t compute_flat_index(size_t* index, size_t* stride, size_t ndim);
 f32 clamp(f32 value, f32 minval, f32 maxval);
 bool is_contiguous(NDArray* array);
 size_t cdiv(size_t a, size_t b);
-size_t* compute_stride_from_shape(size_t* dst, size_t* shape, size_t ndim);
-size_t* compute_bstride_from_shape(size_t* dst, size_t* shape, size_t* stride, size_t ndim);
+size_t* compute_stride(size_t* dst, size_t* shape, size_t ndim);
+size_t* compute_bstride(size_t* dst, size_t* shape, size_t* stride, size_t ndim);
 
 // -------------------------------------------------------------------------------------------------
 // DATA
@@ -89,10 +91,16 @@ void array_free(NDArray* array);
 // ITERATOR
 // -------------------------------------------------------------------------------------------------
 
-NDIterator iterator_create(f32* ptr, size_t* shape, size_t* stride, size_t* dims, size_t ndim);
-NDIterator array_iter(NDArray* array, size_t* dims);
-void iterator_free(NDIterator* iterator);
-bool iterator_iterate(NDIterator* iter);
+NDIterator iter_create(
+        f32* ptr,
+        size_t* shape,
+        size_t* stride,
+        size_t* bstride,
+        size_t* dims,
+        size_t ndim);
+NDIterator iter_array(NDArray* array, size_t* dims);
+void iter_free(NDIterator* iterator);
+bool iter_next(NDIterator* iter);
 
 // -------------------------------------------------------------------------------------------------
 // COPY

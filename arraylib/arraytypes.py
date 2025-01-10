@@ -24,6 +24,18 @@ class NDArray:
         return tuple(self.buffer.stride[i] for i in range(self.ndim))
 
     @property
+    def bstride(self) -> tuple[int, ...]:
+        return tuple(self.buffer.bstride[i] for i in range(self.ndim))
+    
+    @property
+    def size(self) -> int:
+        return self.buffer.size
+
+    @property
+    def view(self) -> bool:
+        return self.buffer.view
+
+    @property
     def offset(self) -> int:
         return self.buffer.offset
 
@@ -57,19 +69,3 @@ class JVPNDArray(NDArray):
         assert primal.stride == tangent.stride
         self.primal = primal
         self.tangent = tangent
-
-    @property
-    def shape(self) -> tuple[int, ...]:
-        return self.primal.shape
-
-    @property
-    def stride(self) -> tuple[int, ...]:
-        return self.primal.stride
-
-    @property
-    def offset(self) -> int:
-        return self.primal.offset
-
-    @property
-    def ndim(self) -> int:
-        return self.primal.ndim

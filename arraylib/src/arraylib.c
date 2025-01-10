@@ -73,14 +73,14 @@ bool is_contiguous(NDArray* array) {
 
 size_t cdiv(size_t a, size_t b) { return (a + b - 1) / b; }
 
-size_t* compute_stride_from_shape(size_t* dst, size_t* shape, size_t ndim) {
+size_t* compute_stride(size_t* dst, size_t* shape, size_t ndim) {
     dst[ndim - 1] = 1;
     for (ssize_t i = ndim - 2; i >= 0; i--)
         dst[i] = dst[i + 1] * shape[i + 1];
     return dst;
 }
 
-size_t* compute_bstride_from_shape(size_t* dst, size_t* shape, size_t* stride, size_t ndim) {
+size_t* compute_bstride(size_t* dst, size_t* shape, size_t* stride, size_t ndim) {
     for (size_t i = 0; i < ndim; i++)
         dst[i] = (shape[i] - 1) * stride[i];
     return dst;
@@ -127,7 +127,8 @@ Data* data_empty(size_t size) {
 NDArray* array_empty(size_t* shape, size_t ndim) {
     NDArray* array = (NDArray*)alloc(sizeof(NDArray));
     array->shape = size_t_copy(size_t_create(ndim), shape, ndim);
-    array->stride = compute_stride_from_shape(size_t_create(ndim), shape, ndim);
+    array->stride = compute_stride(size_t_create(ndim), shape, ndim);
+    array->bstride = compute_bstride(size_t_create(ndim), array->shape, array->stride, ndim);
     array->data = data_empty(prod(shape, ndim));
     array->offset = 0;
     array->ndim = ndim;
@@ -150,12 +151,18 @@ void array_free(NDArray* array) {
 // ITERATOR
 // -------------------------------------------------------------------------------------------------
 
-NDIterator iterator_create(f32* ptr, size_t* shape, size_t* stride, size_t* dims, size_t ndim) {
+NDIterator iter_create(
+        f32* ptr,
+        size_t* shape,
+        size_t* stride,
+        size_t* bstride,
+        size_t* dims,
+        size_t ndim) {
     NDIterator iter;
     size_t offset = 0;
-    iter.shape = size_t_copy(size_t_create(ndim), shape, ndim);
-    iter.stride = size_t_copy(size_t_create(ndim), stride, ndim);
-    iter.bstride = compute_bstride_from_shape(size_t_create(ndim), shape, stride, ndim);
+    iter.shape = shape;
+    iter.stride = stride;
+    iter.bstride = bstride;
     iter.index = size_t_set(size_t_create(ndim), 0, ndim);
     iter.dims = size_t_copy(size_t_create(ndim), dims, ndim);
     iter.counter = 0;
@@ -174,18 +181,22 @@ NDIterator iterator_create(f32* ptr, size_t* shape, size_t* stride, size_t* dims
     return iter;
 }
 
-NDIterator array_iter(NDArray* array, size_t* dims) {
-    f32* ptr = &array->data->mem[array->offset];
-    NDIterator iter = iterator_create(ptr, array->shape, array->stride, dims, array->ndim);
-    return iter;
+NDIterator iter_array(NDArray* array, size_t* iterdims) {
+    return iter_create(
+            &array->data->mem[array->offset],  // base pointer
+            array->shape,                      // data shape
+            array->stride,                     // data stride
+            array->bstride,                    // data back stride
+            iterdims,                          // dimensions to iter/fix
+            array->ndim);
 }
 
-void iterator_free(NDIterator* iterator) {
+void iter_free(NDIterator* iterator) {
     free(iterator->index);
-    free(iterator->bstride);
+    free(iterator->dims);
 }
 
-bool iterator_iterate(NDIterator* iter) {
+bool iter_next(NDIterator* iter) {
     if (iter->counter >= iter->size)
         return false;
 
@@ -205,8 +216,7 @@ bool iterator_iterate(NDIterator* iter) {
             return true;
         }
         iter->index[i] = 0;             // move to next
-        iter->ptr -= iter->bstride[i];  // move to start
-                                        // of dim
+        iter->ptr -= iter->bstride[i];  // move to start of dim
     }
     iter->counter++;
     return true;
@@ -223,6 +233,7 @@ NDArray* array_shallow_copy(NDArray* array) {
     size_t ndim = array->ndim;
     out_array->shape = size_t_copy(size_t_create(ndim), array->shape, ndim);
     out_array->stride = size_t_copy(size_t_create(ndim), array->stride, ndim);
+    out_array->bstride = size_t_copy(size_t_create(ndim), array->bstride, ndim);
     out_array->offset = array->offset;
     out_array->data = array->data;
     array->data->refs++;
@@ -233,12 +244,12 @@ NDArray* array_shallow_copy(NDArray* array) {
 NDArray* array_deep_copy(NDArray* array) {
     NDArray* out_array = array_empty(array->shape, array->ndim);
     size_t* dims = size_t_set(size_t_create(array->ndim), ITERDIM, array->ndim);
-    NDIterator dst_iter = array_iter(out_array, dims);
-    NDIterator src_iter = array_iter(array, dims);
-    while (iterator_iterate(&dst_iter) && iterator_iterate(&src_iter))
+    NDIterator dst_iter = iter_array(out_array, dims);
+    NDIterator src_iter = iter_array(array, dims);
+    while (iter_next(&dst_iter) && iter_next(&src_iter))
         *dst_iter.ptr = *src_iter.ptr;
-    iterator_free(&dst_iter);
-    iterator_free(&src_iter);
+    iter_free(&dst_iter);
+    iter_free(&src_iter);
     free(dims);
     return out_array;
 }
@@ -349,20 +360,23 @@ NDArray* array_set_scalar_from_range(
     size_t ndim = array->ndim;
     size_t* view_shape = size_t_create(ndim);
     size_t* view_stride = size_t_create(ndim);
+    size_t* view_bstride = size_t_create(ndim);
     for (size_t i = 0; i < ndim; i++) {
         view_shape[i] = cdiv(end[i] - start[i], step[i]);
         view_stride[i] = array->stride[i] * step[i];
+        view_bstride[i] = (view_shape[i] - 1) * view_stride[i];
     }
     f32* ptr = &array->data->mem[array->offset];
     ptr += compute_flat_index(start, array->stride, array->ndim);
-    size_t* dims = size_t_set(size_t_create(ndim), ITERDIM, ndim);
-    NDIterator iter = iterator_create(ptr, view_shape, view_stride, dims, ndim);
-    while (iterator_iterate(&iter))
+    size_t* iterdims = size_t_set(size_t_create(ndim), ITERDIM, ndim);
+    NDIterator iter = iter_create(ptr, view_shape, view_stride, view_bstride, iterdims, ndim);
+    while (iter_next(&iter))
         *iter.ptr = value;
     free(view_shape);
     free(view_stride);
-    iterator_free(&iter);
-    free(dims);
+    free(view_bstride);
+    free(iterdims);
+    iter_free(&iter);
     return array;
 }
 
@@ -382,24 +396,27 @@ NDArray* array_set_view_from_array(
     size_t ndim = array->ndim;
     size_t* view_shape = size_t_create(ndim);
     size_t* view_stride = size_t_create(ndim);
+    size_t* view_bstride = size_t_create(ndim);
     for (size_t i = 0; i < ndim; i++) {
         view_shape[i] = cdiv(end[i] - start[i], step[i]);
         view_stride[i] = array->stride[i] * step[i];
+        view_bstride[i] = (view_shape[i] - 1) * view_stride[i];
     }
     assert((prod(view_shape, ndim) == prod(value->shape, ndim))
            && "ValueError: set value shape mismatch.");
     f32* ptr = &array->data->mem[array->offset];
     ptr += compute_flat_index(start, array->stride, array->ndim);
-    size_t* dims = size_t_set(size_t_create(ndim), ITERDIM, ndim);
-    NDIterator src = iterator_create(ptr, view_shape, view_stride, dims, ndim);
-    NDIterator dst = array_iter(value, dims);
-    while (iterator_iterate(&src) && iterator_iterate(&dst))
+    size_t* iterdims = size_t_set(size_t_create(ndim), ITERDIM, ndim);
+    NDIterator src = iter_create(ptr, view_shape, view_stride, view_bstride, iterdims, ndim);
+    NDIterator dst = iter_array(value, iterdims);
+    while (iter_next(&src) && iter_next(&dst))
         *src.ptr = *dst.ptr;
+
+    iter_free(&src);
+    iter_free(&dst);
     free(view_shape);
     free(view_stride);
-    iterator_free(&src);
-    iterator_free(&dst);
-    free(dims);
+    free(iterdims);
     return array;
 }
 
@@ -412,8 +429,10 @@ NDArray* array_reshape(NDArray* array, size_t* shape, size_t ndim) {
     NDArray* out_array = is_contiguous(array) ? array_shallow_copy(array) : array_deep_copy(array);
     free(out_array->shape);
     free(out_array->stride);
+    free(out_array->bstride);
     out_array->shape = size_t_copy(size_t_create(ndim), shape, ndim);
-    out_array->stride = compute_stride_from_shape(size_t_create(ndim), shape, ndim);
+    out_array->stride = compute_stride(size_t_create(ndim), shape, ndim);
+    out_array->bstride = compute_bstride(size_t_create(ndim), shape, out_array->stride, ndim);
     out_array->ndim = ndim;
     return out_array;
 }
@@ -421,15 +440,21 @@ NDArray* array_reshape(NDArray* array, size_t* shape, size_t ndim) {
 NDArray* array_transpose(NDArray* array, size_t* dst) {
     NDArray* out_array = is_contiguous(array) ? array_shallow_copy(array) : array_deep_copy(array);
     size_t ndim = array->ndim;
-    size_t *shape = size_t_create(ndim), *stride = size_t_create(ndim);
+    size_t* shape = size_t_create(ndim);
+    size_t* stride = size_t_create(ndim);
+    size_t* bstride = size_t_create(ndim);
     shape = size_t_copy(shape, array->shape, ndim);
     stride = size_t_copy(stride, array->stride, ndim);
+    bstride = size_t_copy(bstride, array->bstride, ndim);
+
     for (size_t i = 0; i < array->ndim; i++) {
         out_array->shape[i] = shape[dst[i]];
         out_array->stride[i] = stride[dst[i]];
+        out_array->bstride[i] = bstride[dst[i]];
     }
     free(shape);
     free(stride);
+    free(bstride);
     return out_array;
 }
 
@@ -462,6 +487,7 @@ NDArray* array_move_axis(NDArray* array, size_t* src, size_t* dst, size_t ndim) 
     for (size_t i = 0; i < array->ndim; i++) {
         out_array->shape[i] = array->shape[swap_axes[i]];
         out_array->stride[i] = array->stride[swap_axes[i]];
+        out_array->bstride[i] = array->bstride[swap_axes[i]];
     }
     free(bucket);
     free(swap_axes);
@@ -488,12 +514,12 @@ NDArray* array_ravel(NDArray* array) {
 NDArray* array_scalar_op(NDArray* array, f32 rhs, binop fn) {
     NDArray* out_array = array_empty(array->shape, array->ndim);
     size_t* dims = size_t_set(size_t_create(array->ndim), ITERDIM, array->ndim);
-    NDIterator src = array_iter(array, dims);
-    NDIterator dst = array_iter(out_array, dims);
-    while (iterator_iterate(&src) && iterator_iterate(&dst))
+    NDIterator src = iter_array(array, dims);
+    NDIterator dst = iter_array(out_array, dims);
+    while (iter_next(&src) && iter_next(&dst))
         *dst.ptr = fn(*src.ptr, rhs);
-    iterator_free(&src);
-    iterator_free(&dst);
+    iter_free(&src);
+    iter_free(&dst);
     free(dims);
     return out_array;
 }
@@ -561,17 +587,16 @@ NDArray* array_array_scalar_op(NDArray* lhs, NDArray* rhs, binop fn) {
         assert(lhs->shape[i] == rhs->shape[i]);
     NDArray* out = array_empty(lhs->shape, lhs->ndim);
     size_t* dims = size_t_set(size_t_create(lhs->ndim), ITERDIM, lhs->ndim);
-    NDIterator lhs_iter = array_iter(lhs, dims);
-    NDIterator rhs_iter = array_iter(rhs, dims);
-    NDIterator out_iter = array_iter(out, dims);
+    NDIterator lhs_iter = iter_array(lhs, dims);
+    NDIterator rhs_iter = iter_array(rhs, dims);
+    NDIterator out_iter = iter_array(out, dims);
 
-    while (iterator_iterate(&lhs_iter) && iterator_iterate(&rhs_iter)
-           && iterator_iterate(&out_iter))
+    while (iter_next(&lhs_iter) && iter_next(&rhs_iter) && iter_next(&out_iter))
         *out_iter.ptr = fn(*lhs_iter.ptr, *rhs_iter.ptr);
 
-    iterator_free(&lhs_iter);
-    iterator_free(&rhs_iter);
-    iterator_free(&out_iter);
+    iter_free(&lhs_iter);
+    iter_free(&rhs_iter);
+    iter_free(&out_iter);
     free(dims);
     return out;
 }
@@ -623,12 +648,12 @@ static inline f32 exp32(f32 lhs) { return expf(lhs); }
 NDArray* array_op(NDArray* array, uniop fn) {
     NDArray* out_array = array_empty(array->shape, array->ndim);
     size_t* dims = size_t_set(size_t_create(array->ndim), ITERDIM, array->ndim);
-    NDIterator src = array_iter(array, dims);
-    NDIterator dst = array_iter(out_array, dims);
-    while (iterator_iterate(&src) && iterator_iterate(&dst))
+    NDIterator src = iter_array(array, dims);
+    NDIterator dst = iter_array(out_array, dims);
+    while (iter_next(&src) && iter_next(&dst))
         *dst.ptr = fn(*src.ptr);
-    iterator_free(&src);
-    iterator_free(&dst);
+    iter_free(&src);
+    iter_free(&dst);
     free(dims);
     return out_array;
 }
@@ -645,14 +670,14 @@ NDArray* array_array_dot(NDArray* lhs, NDArray* rhs) {
     assert(lhs->ndim == 1 && "ValueError: lhs dimension != 1 for dot.");
     assert(rhs->ndim == 1 && "ValueError: rhs dimension != 1 for dot.");
     assert(lhs->shape[0] == rhs->shape[0] && "ValueError: dot shape mismatch.");
-    size_t* dims = size_t_set(size_t_create(lhs->ndim), ITERDIM, lhs->ndim);
+    size_t* dims = size_t_set(size_t_create(lhs->ndim), ITERDIM, lhs->ndim);  // iterate all
     f32 acc = 0.0f;
-    NDIterator lhs_iter = array_iter(lhs, dims);
-    NDIterator rhs_iter = array_iter(rhs, dims);
-    while (iterator_iterate(&lhs_iter) && iterator_iterate(&rhs_iter))
+    NDIterator lhs_iter = iter_array(lhs, dims);
+    NDIterator rhs_iter = iter_array(rhs, dims);
+    while (iter_next(&lhs_iter) && iter_next(&rhs_iter))
         acc = sum32(acc, mul32(*lhs_iter.ptr, *rhs_iter.ptr));
-    iterator_free(&lhs_iter);
-    iterator_free(&rhs_iter);
+    iter_free(&lhs_iter);
+    iter_free(&rhs_iter);
     NDArray* out_array = array_empty((size_t[]){1}, 1);
     out_array->data->mem[0] = acc;
     free(dims);
@@ -665,42 +690,39 @@ NDArray* array_reduce(
         size_t reduce_ndim,
         binop acc_fn,
         f32 acc_init) {
-    // transpose
     size_t* move_dst = size_t_create(reduce_ndim);
     for (size_t i = 0; i < reduce_ndim; i++)
         move_dst[i] = i;
-    NDArray* transformed_array = array_move_axis(array, reduce_dim, move_dst, reduce_ndim);
+    NDArray* reshaped_array = array_move_axis(array, reduce_dim, move_dst, reduce_ndim);
     size_t* keepdims_shape = size_t_copy(size_t_create(array->ndim), array->shape, array->ndim);
     for (size_t i = 0; i < reduce_ndim; i++)
         keepdims_shape[reduce_dim[i]] = 1;
 
-    // reshape
     size_t total_size = prod(array->shape, array->ndim);
     size_t rest_size = prod(keepdims_shape, array->ndim);
     size_t reduce_size = total_size / rest_size;
-    transformed_array = array_reshape(transformed_array, (size_t[]){reduce_size, rest_size}, 2);
 
-    // iterate
-    size_t* iter_dims = size_t_set(size_t_create(2), ITERDIM, 2);
+    reshaped_array = array_reshape(reshaped_array, (size_t[]){reduce_size, rest_size}, 2);
+
+    size_t* iterdims = size_t_set(size_t_create(2), ITERDIM, 2);
     NDArray* out_array = array_empty((size_t[]){rest_size}, 1);
-    NDIterator iter = array_iter(transformed_array, iter_dims);
-    f32 sum;
+    NDIterator iter = iter_array(reshaped_array, iterdims);
+
     for (size_t i = 0; i < rest_size; i++) {
-        sum = acc_init;
-        iter_dims[1] = i;
-        iter = array_iter(transformed_array, iter_dims);
-        while (iterator_iterate(&iter))
+        f32 sum = acc_init;
+        iterdims[1] = i;
+        iter = iter_array(reshaped_array, iterdims);
+        while (iter_next(&iter))
             sum = acc_fn(sum, *iter.ptr);
         out_array->data->mem[i] = sum;
     }
 
     out_array = array_reshape(out_array, keepdims_shape, array->ndim);
-
     free(move_dst);
     free(keepdims_shape);
-    free(iter_dims);
-    iterator_free(&iter);
-    array_free(transformed_array);
+    free(iterdims);
+    iter_free(&iter);
+    array_free(reshaped_array);
     return out_array;
 }
 
