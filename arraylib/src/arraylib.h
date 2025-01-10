@@ -1,9 +1,8 @@
 #ifndef ARRAYLIB_H
 #define ARRAYLIB_H
 
-#define BLOCK_SIZE 8
+#define BLOCK_SIZE 32
 #define ITERDIM (size_t)(-1)
-
 #include <assert.h>
 #include <math.h>
 #include <stdbool.h>
@@ -12,6 +11,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
 // -------------------------------------------------------------------------------------------------
 // STRUCTS/TYPEDEFS
 // -------------------------------------------------------------------------------------------------
@@ -65,11 +65,6 @@ size_t prod(size_t* nums, size_t ndim);
 size_t* size_t_create(size_t ndim);
 size_t* size_t_set(size_t* dst, size_t value, size_t size);
 size_t* size_t_copy(size_t* dst, size_t* src, size_t size);
-size_t* move_reduce_dims_to_front(
-        size_t* dst,
-        size_t* reduce_dims,
-        size_t reduce_ndim,
-        size_t ndim);
 size_t compute_flat_index(size_t* index, size_t* stride, size_t ndim);
 f32 clamp(f32 value, f32 minval, f32 maxval);
 bool is_contiguous(NDArray* array);
@@ -147,6 +142,7 @@ NDArray* array_set_view_from_array(
 
 NDArray* array_reshape(NDArray* array, size_t* shape, size_t ndim);
 NDArray* array_transpose(NDArray* array, size_t* dst);
+NDArray* array_move_axis(NDArray* array, size_t* src, size_t* dst, size_t ndim);
 NDArray* array_ravel(NDArray* array);
 
 // -------------------------------------------------------------------------------------------------

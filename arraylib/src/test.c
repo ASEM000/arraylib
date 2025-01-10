@@ -18,7 +18,7 @@ void handle_sigabrt(int signum) {
     }
 
 void test_alloc() {
-    void *ptr = alloc(10);
+    void* ptr = alloc(10);
     TEST(assert(ptr != NULL));
 }
 
@@ -30,7 +30,7 @@ void test_utils() {
     size_t nums2[] = {1, 2, 3};
     TEST(prod(nums2, 0));
 
-    size_t *arr = size_t_create(5);
+    size_t* arr = size_t_create(5);
     TEST(assert(arr != NULL));
     free(arr);
 
@@ -50,17 +50,11 @@ void test_utils() {
     TEST(assert(clamp(5, 0, 10) == 5));
     TEST(assert(clamp(-1, 0, 10) == 0));
     TEST(assert(clamp(11, 0, 10) == 10));
-
-    // [0, 1, 2, 3] => [1, 2, 0, 3]
-    size_t *a = size_t_create(4);
-    a = move_reduce_dims_to_front(a, (size_t[]){1, 2}, 2, 4);
-    TEST(assert(a[0] == 1 && a[1] == 2 && a[2] == 0 && a[3] == 3));
-    free(a);
 }
 
 void test_array_creation() {
     size_t shape[] = {2, 3};
-    NDArray *array = array_empty(shape, 2);
+    NDArray* array = array_empty(shape, 2);
     TEST(assert(array != NULL));
     TEST(assert(array->ndim == 2));
     TEST(assert(array->shape[0] == 2 && array->shape[1] == 3));
@@ -72,8 +66,8 @@ void test_array_creation() {
 
 void test_iterator() {
     size_t shape[] = {2, 3};
-    NDArray *array = array_empty(shape, 2);
-    size_t *dims = size_t_set(size_t_create(array->ndim), ITERDIM, array->ndim);
+    NDArray* array = array_empty(shape, 2);
+    size_t* dims = size_t_set(size_t_create(array->ndim), ITERDIM, array->ndim);
     NDIterator iter = array_iter(array, dims);
     TEST(assert(iter.ptr != NULL));
     TEST(assert(iter.size == 6));
@@ -88,28 +82,28 @@ void test_iterator() {
 
 void test_array_initialization() {
     size_t shape[] = {2, 2};
-    NDArray *zeros = array_zeros(shape, 2);
+    NDArray* zeros = array_zeros(shape, 2);
     TEST(assert(zeros != NULL));
     TEST(assert(zeros->data->mem[0] == 0 && zeros->data->mem[3] == 0));
     array_free(zeros);
 
     f32 elems[] = {1, 2, 3, 4};
-    NDArray *filled = array_fill(elems, shape, 2);
+    NDArray* filled = array_fill(elems, shape, 2);
     TEST(assert(filled != NULL));
     TEST(assert(filled->data->mem[0] == 1 && filled->data->mem[3] == 4));
     array_free(filled);
 
-    NDArray *ones = array_ones(shape, 2);
+    NDArray* ones = array_ones(shape, 2);
     TEST(assert(ones != NULL));
     TEST(assert(ones->data->mem[0] == 1 && ones->data->mem[3] == 1));
     array_free(ones);
 
-    NDArray *arange = array_arange(0, 5, 1);
+    NDArray* arange = array_arange(0, 5, 1);
     TEST(assert(arange != NULL));
     TEST(assert(arange->data->mem[0] == 0 && arange->data->mem[4] == 4));
     array_free(arange);
 
-    NDArray *linspace = array_linspace(0, 1, 5);
+    NDArray* linspace = array_linspace(0, 1, 5);
     TEST(assert(linspace != NULL));
     TEST(assert(linspace->data->mem[0] == 0 && linspace->data->mem[4] == 1));
     array_free(linspace);
@@ -117,16 +111,16 @@ void test_array_initialization() {
 
 void test_array_operations() {
     size_t shape[] = {2, 2};
-    NDArray *array = array_ones(shape, 2);
-    NDArray *result = array_scalar_add(array, 1);
+    NDArray* array = array_ones(shape, 2);
+    NDArray* result = array_scalar_add(array, 1);
     TEST(assert(result != NULL));
     TEST(assert(result->data->mem[0] == 2 && result->data->mem[3] == 2));
     array_free(array);
     array_free(result);
 
-    NDArray *array1 = array_ones(shape, 2);
-    NDArray *array2 = array_ones(shape, 2);
-    NDArray *sum = array_array_sum(array1, array2);
+    NDArray* array1 = array_ones(shape, 2);
+    NDArray* array2 = array_ones(shape, 2);
+    NDArray* sum = array_array_sum(array1, array2);
     TEST(assert(sum != NULL));
     TEST(assert(sum->data->mem[0] == 2 && sum->data->mem[3] == 2));
     array_free(array1);
@@ -136,9 +130,9 @@ void test_array_operations() {
 
 void test_reduction_operations() {
     size_t shape[] = {3};
-    NDArray *array1 = array_fill((f32[]){1, 2, 3}, shape, 1);
-    NDArray *array2 = array_fill((f32[]){4, 5, 6}, shape, 1);
-    NDArray *dot = array_array_dot(array1, array2);
+    NDArray* array1 = array_fill((f32[]){1, 2, 3}, shape, 1);
+    NDArray* array2 = array_fill((f32[]){4, 5, 6}, shape, 1);
+    NDArray* dot = array_array_dot(array1, array2);
     TEST(assert(dot != NULL));
     TEST(assert(dot->data->mem[0] == 32));
     array_free(array1);
@@ -148,7 +142,7 @@ void test_reduction_operations() {
 
 void test_view_from_range() {
     size_t shape[] = {3, 3};
-    NDArray *array = array_empty(shape, 2);
+    NDArray* array = array_empty(shape, 2);
 
     for (size_t i = 0; i < 9; i++) {
         array->data->mem[i] = (f32)i;
@@ -157,7 +151,7 @@ void test_view_from_range() {
     size_t start[] = {1, 1};
     size_t end[] = {3, 3};
     size_t step[] = {1, 1};
-    NDArray *view = array_get_view_from_range(array, start, end, step);
+    NDArray* view = array_get_view_from_range(array, start, end, step);
 
     TEST(assert(view->shape[0] == 2 && view->shape[1] == 2));
     TEST(assert(view->data->mem[view->offset + 0] == 4.0f));  // [1, 1]
@@ -172,14 +166,14 @@ void test_view_from_range() {
 
 void test_modify_view() {
     size_t shape[] = {3, 3};
-    NDArray *array = array_empty(shape, 2);
+    NDArray* array = array_empty(shape, 2);
 
     memset(array->data->mem, 0, sizeof(f32) * 9);
 
     size_t start[] = {0, 0};
     size_t end[] = {1, 3};
     size_t step[] = {1, 1};
-    NDArray *view = array_get_view_from_range(array, start, end, step);
+    NDArray* view = array_get_view_from_range(array, start, end, step);
 
     array_set_scalar_from_index(view, (size_t[]){0, 1}, 42.0f);
 
@@ -191,7 +185,7 @@ void test_modify_view() {
 
 void test_non_contiguous_view() {
     size_t shape[] = {4};
-    NDArray *array = array_empty(shape, 1);
+    NDArray* array = array_empty(shape, 1);
 
     for (size_t i = 0; i < 4; i++) {
         array->data->mem[i] = (f32)i;
@@ -200,7 +194,7 @@ void test_non_contiguous_view() {
     size_t start[] = {0};
     size_t end[] = {4};
     size_t step[] = {2};
-    NDArray *view = array_get_view_from_range(array, start, end, step);
+    NDArray* view = array_get_view_from_range(array, start, end, step);
 
     TEST(assert(view->shape[0] == 2));
     TEST(assert(view->data->mem[view->offset + 0] == 0.0f));  // [0]
@@ -212,8 +206,8 @@ void test_non_contiguous_view() {
 
 void test_basic_matmul() {
     size_t shape[] = {2, 2};
-    NDArray *lhs = array_empty(shape, 2);
-    NDArray *rhs = array_empty(shape, 2);
+    NDArray* lhs = array_empty(shape, 2);
+    NDArray* rhs = array_empty(shape, 2);
 
     lhs->data->mem[0] = 1.0f;
     lhs->data->mem[1] = 2.0f;
@@ -224,7 +218,7 @@ void test_basic_matmul() {
     rhs->data->mem[1] = 6.0f;
     rhs->data->mem[2] = 7.0f;
     rhs->data->mem[3] = 8.0f;
-    NDArray *result = array_array_matmul(lhs, rhs);
+    NDArray* result = array_array_matmul(lhs, rhs);
 
     TEST(assert(result != NULL));
     TEST(assert(result->shape[0] == 2 && result->shape[1] == 2));
@@ -241,8 +235,8 @@ void test_basic_matmul() {
 void test_dimension_mismatch() {
     size_t shape1[] = {2, 3};
     size_t shape2[] = {4, 2};
-    NDArray *lhs = array_empty(shape1, 2);
-    NDArray *rhs = array_empty(shape2, 2);
+    NDArray* lhs = array_empty(shape1, 2);
+    NDArray* rhs = array_empty(shape2, 2);
 
     //  + 1
     TEST(array_array_matmul(lhs, rhs));
@@ -253,19 +247,19 @@ void test_dimension_mismatch() {
 
 void test_matmul_identity() {
     size_t shape[] = {2, 2};
-    NDArray *matrix = array_empty(shape, 2);
+    NDArray* matrix = array_empty(shape, 2);
     matrix->data->mem[0] = 1.0f;
     matrix->data->mem[1] = 2.0f;
     matrix->data->mem[2] = 3.0f;
     matrix->data->mem[3] = 4.0f;
 
-    NDArray *identity = array_empty(shape, 2);
+    NDArray* identity = array_empty(shape, 2);
     identity->data->mem[0] = 1.0f;
     identity->data->mem[1] = 0.0f;
     identity->data->mem[2] = 0.0f;
     identity->data->mem[3] = 1.0f;
 
-    NDArray *result = array_array_matmul(matrix, identity);
+    NDArray* result = array_array_matmul(matrix, identity);
 
     TEST(assert(result != NULL));
     TEST(assert(result->shape[0] == 2 && result->shape[1] == 2));
@@ -282,8 +276,8 @@ void test_matmul_identity() {
 
 void test_blocked_matmul() {
     size_t shape[] = {4, 4};
-    NDArray *lhs = array_empty(shape, 2);
-    NDArray *rhs = array_empty(shape, 2);
+    NDArray* lhs = array_empty(shape, 2);
+    NDArray* rhs = array_empty(shape, 2);
 
     for (size_t i = 0; i < 16; i++) {
         lhs->data->mem[i] = (f32)i;
@@ -293,7 +287,7 @@ void test_blocked_matmul() {
         rhs->data->mem[i] = (f32)i;
     }
 
-    NDArray *result = array_array_matmul(lhs, rhs);
+    NDArray* result = array_array_matmul(lhs, rhs);
 
     TEST(assert(result != NULL));
     TEST(assert(result->shape[0] == 4 && result->shape[1] == 4));
@@ -326,8 +320,8 @@ void test_blocked_matmul() {
 }
 
 void test_array_reduce_max() {
-    NDArray *array = array_fill((f32[]){1, 5, 3, 2}, (size_t[]){4}, 1);
-    NDArray *result = array_reduce_max(array, (size_t[]){0}, 1);
+    NDArray* array = array_fill((f32[]){1, 5, 3, 2}, (size_t[]){4}, 1);
+    NDArray* result = array_reduce_max(array, (size_t[]){0}, 1);
     TEST(assert(result->data->mem[0] == 5 && "Test case 1 failed"));
 
     array = array_fill((f32[]){-1, -5, -3, -2}, (size_t[]){4}, 1);
@@ -339,7 +333,7 @@ void test_array_reduce_max() {
 }
 
 void test_array_reduce_sum() {
-    NDArray *array = array_arange(1, 26, 1);
+    NDArray* array = array_arange(1, 26, 1);
     array = array_reshape(array, (size_t[]){5, 5}, 2);
     array = array_reduce_sum(array, (size_t[]){0}, 1);
     TEST(assert(array->data->mem[0] == 55.));
@@ -354,7 +348,13 @@ void test_array_reduce_sum() {
     array_free(array);
 }
 
-void test_array_reduce_sum_2() {}
+void test_array_reshape() {
+    NDArray* array = array_arange(1, 3 * 4 * 5 * 6 + 1, 1);
+    array = array_reshape(array, (size_t[]){3, 4, 5, 6}, 4);
+    size_t src[2] = {1, 3};
+    size_t dst[2] = {0, 2};
+    array_move_axis(array, src, dst, 2);
+}
 
 int main() {
     test_alloc();
@@ -373,6 +373,7 @@ int main() {
     test_array_reduce_max();
     test_array_reduce_sum();
     assert(assertion_failures == 2);
+    test_array_reshape();
     printf("tests passed %d.", assertion_failures);
     return 0;
 }

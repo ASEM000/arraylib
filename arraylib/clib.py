@@ -133,6 +133,7 @@ NDArray *array_set_view_from_array(NDArray *array, size_t *start, size_t *end,
 
 NDArray *array_reshape(NDArray *array, size_t *shape, size_t ndim);
 NDArray *array_transpose(NDArray *array, size_t *dst);
+NDArray* array_move_axis(NDArray* array, size_t* src, size_t* dst, size_t ndim);
 NDArray *array_ravel(NDArray *array);
 
 // ------------------------------------------------------------------
