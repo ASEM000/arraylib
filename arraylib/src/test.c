@@ -68,12 +68,12 @@ void test_iterator() {
     size_t shape[] = {2, 3};
     NDArray* array = array_empty(shape, 2);
     size_t* dims = size_t_set(size_t_create(array->ndim), ITERDIM, array->ndim);
-    NDIterator iter = array_iter(array, dims);
+    NDIterator iter = iter_array(array, dims);
     TEST(assert(iter.ptr != NULL));
     TEST(assert(iter.size == 6));
 
     size_t count = 0;
-    while (iterator_iterate(&iter))
+    while (iter_next(&iter))
         count++;
     TEST(assert(count == 6));
     free(dims);
@@ -323,11 +323,9 @@ void test_array_reduce_max() {
     NDArray* array = array_fill((f32[]){1, 5, 3, 2}, (size_t[]){4}, 1);
     NDArray* result = array_reduce_max(array, (size_t[]){0}, 1);
     TEST(assert(result->data->mem[0] == 5 && "Test case 1 failed"));
-
     array = array_fill((f32[]){-1, -5, -3, -2}, (size_t[]){4}, 1);
     result = array_reduce_max(array, (size_t[]){0}, 1);
     TEST(assert(result->data->mem[0] == -1 && "Test case 2 failed"));
-
     array_free(array);
     array_free(result);
 }
@@ -336,6 +334,7 @@ void test_array_reduce_sum() {
     NDArray* array = array_arange(1, 26, 1);
     array = array_reshape(array, (size_t[]){5, 5}, 2);
     array = array_reduce_sum(array, (size_t[]){0}, 1);
+
     TEST(assert(array->data->mem[0] == 55.));
     TEST(assert(array->ndim == 2));
     TEST(assert(array->shape[0] == 1));
@@ -354,6 +353,39 @@ void test_array_reshape() {
     size_t src[2] = {1, 3};
     size_t dst[2] = {0, 2};
     array_move_axis(array, src, dst, 2);
+    array_free(array);
+}
+
+void test_move_axis() {
+    size_t shape[] = {2, 3};
+    NDArray* array = array_zeros(shape, 2);
+    for (size_t i = 0; i < 2; i++) {
+        for (size_t j = 0; j < 3; j++) {
+            size_t index[] = {i, j};
+            array_set_scalar_from_index(array, index, i * 3 + j);
+        }
+    }
+
+    size_t src[] = {0, 1};
+    size_t dst[] = {1, 0};
+    NDArray* moved_array = array_move_axis(array, src, dst, 2);
+
+    assert(moved_array->shape[0] == 3 && moved_array->shape[1] == 2);
+    for (size_t i = 0; i < 3; i++) {
+        for (size_t j = 0; j < 2; j++) {
+            size_t index[] = {i, j};
+            f32 value = array_get_scalar_from_index(moved_array, index);
+            assert(value == j * 3 + i);
+        }
+    }
+    array_free(array);
+    array_free(moved_array);
+}
+
+void test_transpose() {
+    size_t shape[] = {2, 3, 4};
+    NDArray* array = array_zeros(shape, 3);
+    array = array_transpose(array, (size_t[]){1, 0, 2});
 }
 
 int main() {
@@ -372,8 +404,11 @@ int main() {
     test_blocked_matmul();
     test_array_reduce_max();
     test_array_reduce_sum();
-    assert(assertion_failures == 2);
     test_array_reshape();
+    test_move_axis();
+    test_transpose();
+    assert(assertion_failures == 2);
+
     printf("tests passed %d.", assertion_failures);
     return 0;
 }
