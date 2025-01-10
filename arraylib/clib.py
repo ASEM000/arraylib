@@ -60,12 +60,12 @@ size_t prod(size_t *nums, size_t ndim);
 size_t *size_t_create(size_t ndim);
 size_t *size_t_set(size_t *dst, size_t value, size_t size);
 size_t *size_t_copy(size_t *dst, size_t *src, size_t size);
-size_t flat_index(size_t *index, size_t *stride, size_t ndim);
+size_t compute_flat_index(size_t *index, size_t *stride, size_t ndim);
 f32 clamp(f32 value, f32 minval, f32 maxval);
 bool is_contiguous(NDArray *array);
 size_t cdiv(size_t a, size_t b);
-size_t *stride_from_shape(size_t *dst, size_t *shape, size_t ndim);
-size_t *bstride_from_shape(size_t *dst, size_t *shape, size_t *stride,
+size_t *compute_stride_from_shape(size_t *dst, size_t *shape, size_t ndim);
+size_t *compute_bstride_from_shape(size_t *dst, size_t *shape, size_t *stride,
                            size_t ndim);
 
 // ------------------------------------------------------------------
@@ -157,7 +157,7 @@ NDArray *array_array_matmul(NDArray *lhs, NDArray *rhs);
 // ------------------------------------------------------------------
 
 NDArray *array_array_scalar_op(NDArray *lhs, NDArray *rhs, binop fn);
-NDArray *array_array_add(NDArray *lhs, NDArray *rhs);
+NDArray *array_array_sum(NDArray *lhs, NDArray *rhs);
 NDArray *array_array_sub(NDArray *lhs, NDArray *rhs);
 NDArray *array_array_mul(NDArray *lhs, NDArray *rhs);
 NDArray *array_array_div(NDArray *lhs, NDArray *rhs);
@@ -183,7 +183,11 @@ NDArray *array_exp(NDArray *array);
 // ------------------------------------------------------------------
 // REDUCTION OPERATIONS
 // ------------------------------------------------------------------
-NDArray *array_array_dot(NDArray *lhs, NDArray *rhs);
+NDArray *array_reduce(NDArray *array, size_t *axes, size_t num_axes, binop acc_fn, f32 acc_init);
+NDArray* array_array_dot(NDArray* lhs, NDArray* rhs);
+NDArray *array_reduce_max(NDArray *array, size_t *reduce_dim, size_t ndim);
+NDArray *array_reduce_min(NDArray *array, size_t *reduce_dim, size_t ndim);
+NDArray *array_reduce_sum(NDArray *array, size_t *reduce_dim, size_t ndim);
 """
 )
 
@@ -193,7 +197,7 @@ ffi.set_source(
     """
     #include "arraylib.h"
     """,
-    include_dirs=["."]
+    include_dirs=["."],
 )
 
 lib = ffi.dlopen(os.path.join(Path(__file__).parent, "src", "arraylib.so"))

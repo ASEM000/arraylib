@@ -8,7 +8,7 @@ import arraylib.primitive as primitive
 import arraylib
 
 
-def array(elems):
+def array(elems: list[tp.Any]) -> arraylib.NDArray:
     assert isinstance(elems, tp.Sequence)
     shape = {}
 
@@ -347,3 +347,39 @@ def copy(array, deep=False):
     if deep:
         return arraylib.NDArray(lib.array_deep_copy(array))
     return lib.array_shallow_copy(array)
+
+
+# reductions
+
+
+def reduce_sum(array, axis=None):
+    assert isinstance(axis, tp.Sequence) or axis is None
+    if axis is None:
+        axis = tuple(range(array.ndim))
+    else:
+        assert len(axis) <= array.ndim, "too many axes to reduce"
+        axis = sorted(axis)
+    axis = tuple(axis)
+    return primitive.reduce_sum_p(array, axis)
+
+
+def reduce_max(array, axis=None):
+    assert isinstance(axis, tp.Sequence) or axis is None
+    if axis is None:
+        axis = tuple(range(array.ndim))
+    else:
+        assert len(axis) <= array.ndim, "too many axes to reduce"
+        axis = sorted(axis)
+    axis = tuple(axis)
+    return primitive.reduce_max_p(array, axis)
+
+
+def reduce_min(array, axis=None):
+    assert isinstance(axis, tp.Sequence) or axis is None
+    if axis is None:
+        axis = tuple(range(array.ndim))
+    else:
+        assert len(axis) <= array.ndim, "too many axes to reduce"
+        axis = sorted(axis)
+    axis = tuple(axis)
+    return primitive.reduce_min_p(array, axis)

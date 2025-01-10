@@ -1,12 +1,7 @@
-name: Make CI
+name: run c tests
 
-on:
-  push:
-    branches:
-      - main
-  pull_request:
-    branches:
-      - main
+on: [push, pull_request]
+
 jobs:
   build:
     runs-on: ubuntu-latest  # Use the latest Ubuntu environment
@@ -15,5 +10,5 @@ jobs:
     - name: checkout repository
       uses: actions/checkout@v3  # Check out the repository code
 
-    - name: run make
+    - name: run c test
       run: make tests

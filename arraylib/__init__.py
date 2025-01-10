@@ -21,6 +21,9 @@ from arraylib.core import (
     exp,
     log,
     copy,
+    reduce_max,
+    reduce_sum,
+    reduce_min,
 )
 from arraylib.arraytypes import NDArray, JVPNDArray
 import arraylib.impl as impl
@@ -55,4 +58,7 @@ __all__ = [
     "NDArray",
     "JVPNDArray",
     "copy",
+    "reduce_max",
+    "reduce_sum",
+    "reduce_min",
 ]
