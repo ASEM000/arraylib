@@ -15,15 +15,16 @@ from arraylib.core import (
     lt,
     geq,
     gt,
-    tobuffer,
-    frombuffer,
-    tonumpy,
+    to_buffer,
+    from_buffer,
+    to_numpy,
     exp,
     log,
     copy,
     reduce_max,
     reduce_sum,
     reduce_min,
+    move_axis,
 )
 from arraylib.arraytypes import NDArray, JVPNDArray
 import arraylib.impl as impl
@@ -48,9 +49,9 @@ __all__ = [
     "lt",
     "geq",
     "gt",
-    "tobuffer",
-    "frombuffer",
-    "tonumpy",
+    "to_buffer",
+    "from_buffer",
+    "to_numpy",
     "exp",
     "log",
     "ffi",
@@ -61,4 +62,5 @@ __all__ = [
     "reduce_max",
     "reduce_sum",
     "reduce_min",
+    "move_axis",
 ]

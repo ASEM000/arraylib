@@ -32,6 +32,7 @@ gt_p = bidispatch(_no_impl_error)
 ravel_p = unidispatch(_no_impl_error)
 reshape_p = unidispatch(_no_impl_error)
 transpose_p = unidispatch(_no_impl_error)
+move_axis_p = unidispatch(_no_impl_error)
 
 # setter and getter (4)
 get_view_from_range_p = unidispatch(_no_impl_error)

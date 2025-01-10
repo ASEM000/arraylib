@@ -1,6 +1,6 @@
 # Compiler and flags
 CC = gcc
-CFLAGS = -Wall -fPIC
+CFLAGS = -Wall -fPIC -O3
 
 # Target shared library
 TARGET = arraylib/src/arraylib.so

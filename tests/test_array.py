@@ -6,10 +6,9 @@ import operator
 from itertools import product
 
 
-
 def assert_array_equal(al_array, np_array):
     np_array = np_array.astype(np.float32)
-    npt.assert_array_equal(al.tonumpy(al_array), np_array.astype(np.float32))
+    npt.assert_array_equal(al.to_numpy(al_array), np_array.astype(np.float32))
 
 
 def prod(iterable):
@@ -176,6 +175,20 @@ def test_transpose(data, axes):
 
 
 @pytest.mark.parametrize(
+    "src, dst",
+    [((1, 2), (2, 1)), ((3, 0), (1, 2))],
+)
+def test_move_axis(src, dst):
+    a_al = al.arange(1, 1 + 3 * 4 * 5 * 6)
+    a_al = al.reshape(a_al, (3, 4, 5, 6))
+    b_al = al.move_axis(a_al, src, dst)
+
+    a_np = np.arange(1, 1 + 3 * 4 * 5 * 6).reshape(3, 4, 5, 6)
+    b_np = np.moveaxis(a_np, src, dst)
+    assert_array_equal(b_al, b_np)
+
+
+@pytest.mark.parametrize(
     "data",
     [
         [[1, 2, 3], [4, 5, 6]],
@@ -209,21 +222,7 @@ def test_getitem_setitem(data, index, value):
     assert_array_equal(a_al, np_array)
 
 
-@pytest.mark.parametrize(
-    "axis",
-    [
-        (0,),
-        (1,),
-        (2,),
-        (3,),
-        (0, 1),
-        (1, 2),
-        (2, 3),
-        (0, 1, 2),
-        (1, 2, 3),
-        (0, 1, 2, 3),
-    ],
-)
+@pytest.mark.parametrize("axis", tuple(power_set((0, 1, 2, 3))))
 def test_reduce_sum(axis):
     a_al = al.arange(1, 1 + 3 * 4 * 5 * 6)
     a_al = al.reshape(a_al, (3, 4, 5, 6))
@@ -235,21 +234,7 @@ def test_reduce_sum(axis):
     assert_array_equal(b_al, b_np)
 
 
-@pytest.mark.parametrize(
-    "axis",
-    [
-        (0,),
-        (1,),
-        (2,),
-        (3,),
-        (0, 1),
-        (1, 2),
-        (2, 3),
-        (0, 1, 2),
-        (1, 2, 3),
-        (0, 1, 2, 3),
-    ],
-)
+@pytest.mark.parametrize("axis", tuple(power_set((0, 1, 2, 3))))
 def test_reduce_max(axis):
     a_al = al.arange(1, 1 + 3 * 4 * 5 * 6)
     a_al = al.reshape(a_al, (3, 4, 5, 6))
@@ -260,6 +245,7 @@ def test_reduce_max(axis):
 
     assert_array_equal(b_al, b_np)
 
+
 @pytest.mark.parametrize("axis", tuple(power_set((0, 1, 2, 3))))
 def test_reduce_min(axis):
     a_al = al.arange(1, 1 + 3 * 4 * 5 * 6)
@@ -269,13 +255,13 @@ def test_reduce_min(axis):
     b_np = np.min(a_np, axis=axis, keepdims=True)
     assert_array_equal(b_al, b_np)
 
+
 @pytest.mark.parametrize("index", product(range(3), range(4), range(5), range(6)))
 def test_get_index_from_scalar(index):
     a_al = al.arange(1, 1 + 3 * 4 * 5 * 6)
     a_al = al.reshape(a_al, (3, 4, 5, 6))
     a_np = np.arange(1, 1 + 3 * 4 * 5 * 6).reshape(3, 4, 5, 6)
-    assert(a_al[index] == a_np[index])
-
+    assert a_al[index] == a_np[index]
 
 
 @pytest.mark.parametrize("index", product(range(3), range(4), range(5), range(6)))
@@ -286,5 +272,3 @@ def test_set_index_from_scalar(index):
     a_al[index] = 10
     a_np[index] = 10
     assert_array_equal(a_al, a_np)
-
-

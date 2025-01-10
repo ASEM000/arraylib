@@ -71,12 +71,12 @@ def linspace(start: int, end: int, n: int):
     return arraylib.NDArray(buffer=lib.array_linspace(start, end, n))
 
 
-def tobuffer(array: arraylib.NDArray):
+def to_buffer(array: arraylib.NDArray):
     array = array.buffer
     return ffi.buffer(array.data.mem, array.data.size * 4)
 
 
-def frombuffer(buffer):
+def from_buffer(buffer):
     size = len(buffer) // 4  # float size
     data = ffi.new("float[]", size)
     for i in range(size):
@@ -85,11 +85,11 @@ def frombuffer(buffer):
     return arraylib.NDArray(buffer=lib.array_fill(data, size, 1))
 
 
-def tonumpy(array: arraylib.NDArray):
+def to_numpy(array: arraylib.NDArray):
     import numpy as np
 
     return np.ndarray(
-        buffer=tobuffer(array),
+        buffer=to_buffer(array),
         shape=array.shape,
         dtype=np.float32,
         strides=[s * 4 for s in array.stride],
@@ -174,6 +174,18 @@ def transpose(array, dst: tp.Sequence[int]):
     dst = tuple(dst)
     assert len(dst) == array.ndim
     return primitive.transpose_p(array, dst)
+
+
+def move_axis(array, src: tp.Sequence[int], dst: tp.Sequence[int]):
+    assert isinstance(src, tp.Sequence)
+    assert all(isinstance(i, int) for i in src)
+    assert isinstance(dst, tp.Sequence)
+    assert all(isinstance(i, int) for i in dst)
+    src = tuple(src)
+    dst = tuple(dst)
+    assert len(src) == len(dst)
+    assert 0 < len(src) <= array.ndim
+    return primitive.move_axis_p(array, src, dst)
 
 
 def ravel(array):
@@ -354,32 +366,19 @@ def copy(array, deep=False):
 
 def reduce_sum(array, axis=None):
     assert isinstance(axis, tp.Sequence) or axis is None
-    if axis is None:
-        axis = tuple(range(array.ndim))
-    else:
-        assert len(axis) <= array.ndim, "too many axes to reduce"
-        axis = sorted(axis)
-    axis = tuple(axis)
-    return primitive.reduce_sum_p(array, axis)
-
+    axis = tuple(range(array.ndim)) if axis is None else tuple(axis)
+    assert 0 <= len(axis) <= array.ndim, "axis out of bounds"
+    return primitive.reduce_sum_p(array, axis) if len(axis) else array
 
 def reduce_max(array, axis=None):
     assert isinstance(axis, tp.Sequence) or axis is None
-    if axis is None:
-        axis = tuple(range(array.ndim))
-    else:
-        assert len(axis) <= array.ndim, "too many axes to reduce"
-        axis = sorted(axis)
-    axis = tuple(axis)
-    return primitive.reduce_max_p(array, axis)
+    axis = tuple(range(array.ndim)) if axis is None else tuple(axis)
+    assert 0 <= len(axis) <= array.ndim, "axis out of bounds"
+    return primitive.reduce_max_p(array, axis) if len(axis) else array
 
 
 def reduce_min(array, axis=None):
     assert isinstance(axis, tp.Sequence) or axis is None
-    if axis is None:
-        axis = tuple(range(array.ndim))
-    else:
-        assert len(axis) <= array.ndim, "too many axes to reduce"
-        axis = sorted(axis)
-    axis = tuple(axis)
-    return primitive.reduce_min_p(array, axis)
+    axis = tuple(range(array.ndim)) if axis is None else tuple(axis)
+    assert 0 <= len(axis) <= array.ndim, "axis out of bounds"
+    return primitive.reduce_min_p(array, axis) if len(axis) else array

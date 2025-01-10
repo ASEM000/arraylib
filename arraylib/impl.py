@@ -115,6 +115,11 @@ def _(lhs, dst: tuple[int, ...]) -> NDArray:
 def _(array) -> NDArray:
     return NDArray(buffer=lib.array_ravel(array.buffer))
 
+@primitive.move_axis_p.register(NDArray)
+def _(array, src: tuple[int, ...], dst: tuple[int, ...]) -> NDArray:
+    src = ffi.new("size_t[]", src)
+    dst = ffi.new("size_t[]", dst)
+    return NDArray(buffer=lib.array_move_axis(array.buffer, src, dst, len(src)))
 
 # comparison operations
 

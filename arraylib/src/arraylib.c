@@ -46,24 +46,6 @@ size_t* size_t_copy(size_t* dst, size_t* src, size_t size) {
     return dst;
 }
 
-size_t* move_reduce_dims_to_front(
-        size_t* dst,
-        size_t* reduce_dims,
-        size_t reduce_ndim,
-        size_t ndim) {
-    char* used = (char*)calloc(ndim, 1);
-    for (size_t i = 0; i < reduce_ndim; i++) {
-        dst[i] = reduce_dims[i];
-        used[reduce_dims[i]] = 1;
-    }
-    size_t j = reduce_ndim;
-    for (size_t i = 0; i < ndim; i++)
-        if (!used[i])
-            dst[j++] = i;
-    free(used);
-    return dst;
-}
-
 size_t compute_flat_index(size_t* index, size_t* stride, size_t ndim) {
     size_t flat_index = 0;
     for (size_t i = 0; i < ndim; i++)
@@ -451,9 +433,44 @@ NDArray* array_transpose(NDArray* array, size_t* dst) {
     return out_array;
 }
 
+NDArray* array_move_axis(NDArray* array, size_t* src, size_t* dst, size_t ndim) {
+    for (size_t i = 0; i < ndim; i++) {
+        assert(src[i] >= 0 && src[i] < array->ndim && "ValueError: out of bounds");
+        assert(dst[i] >= 0 && dst[i] < array->ndim && "ValueError: out of bounds");
+    }
+
+    size_t* bucket = size_t_set(size_t_create(array->ndim), ITERDIM, array->ndim);
+
+    for (size_t i = 0; i < ndim; i++)
+        bucket[src[i]] = 0;  // used axis
+
+    NDArray* out_array = is_contiguous(array) ? array_shallow_copy(array) : array_deep_copy(array);
+    size_t* swap_axes = size_t_set(size_t_create(array->ndim), ITERDIM, array->ndim);
+
+    for (size_t i = 0; i < ndim; i++)
+        swap_axes[dst[i]] = src[i];
+
+    size_t j = 0;
+    for (size_t i = 0; i < array->ndim; i++) {
+        if (swap_axes[i] == ITERDIM) {    // free to fill
+            while (bucket[j] != ITERDIM)  // get unused axes
+                j++;
+            swap_axes[i] = j++;
+        }
+    }
+
+    for (size_t i = 0; i < array->ndim; i++) {
+        out_array->shape[i] = array->shape[swap_axes[i]];
+        out_array->stride[i] = array->stride[swap_axes[i]];
+    }
+    free(bucket);
+    free(swap_axes);
+    return out_array;
+}
+
 NDArray* array_ravel(NDArray* array) {
     size_t total = prod(array->shape, array->ndim);
-    NDArray* out_array = array_shallow_copy(array);
+    NDArray* out_array = is_contiguous(array) ? array_shallow_copy(array) : array_deep_copy(array);
     free(out_array->shape);
     free(out_array->stride);
     out_array->shape = size_t_create(1);
@@ -492,35 +509,45 @@ NDArray* array_scalar_pow(NDArray* lhs, f32 rhs) { return array_scalar_op(lhs, r
 // -------------------------------------------------------------------------------------------------
 
 NDArray* array_array_matmul(NDArray* lhs, NDArray* rhs) {
-    // blocked matrix multiplication
-    // TODO: check SIMD compat with the HW
     assert(lhs->ndim == 2 && rhs->ndim == 2);
     assert(lhs->shape[1] == rhs->shape[0]);
     size_t M = lhs->shape[0];
     size_t N = rhs->shape[1];
     size_t K = lhs->shape[1];
+
     NDArray* out_array = array_zeros((size_t[]){M, N}, 2);
+
+    f32* lhs_p = &lhs->data->mem[lhs->offset];
+    f32* rhs_p = &rhs->data->mem[rhs->offset];
+    f32* out_p = &out_array->data->mem[out_array->offset];
+
+    size_t lhs_s0 = lhs->stride[0];
+    size_t lhs_s1 = lhs->stride[1];
+    size_t rhs_s0 = rhs->stride[0];
+    size_t rhs_s1 = rhs->stride[1];
+    size_t out_s0 = out_array->stride[0];
+    size_t out_s1 = out_array->stride[1];
+
     for (size_t i0 = 0; i0 < M; i0 += BLOCK_SIZE) {
-        for (size_t j0 = 0; j0 < N; j0 += BLOCK_SIZE) {
-            for (size_t k0 = 0; k0 < K; k0 += BLOCK_SIZE) {
+        for (size_t k0 = 0; k0 < K; k0 += BLOCK_SIZE) {
+            for (size_t j0 = 0; j0 < N; j0 += BLOCK_SIZE) {
                 size_t imax = (i0 + BLOCK_SIZE < M) ? i0 + BLOCK_SIZE : M;
-                size_t jmax = (j0 + BLOCK_SIZE < N) ? j0 + BLOCK_SIZE : N;
                 size_t kmax = (k0 + BLOCK_SIZE < K) ? k0 + BLOCK_SIZE : K;
+                size_t jmax = (j0 + BLOCK_SIZE < N) ? j0 + BLOCK_SIZE : N;
                 for (size_t i = i0; i < imax; i++) {
-                    for (size_t j = j0; j < jmax; j++) {
-                        f32 sum = array_get_scalar_from_index(out_array, (size_t[]){i, j});
-                        for (size_t k = k0; k < kmax; k++) {
-                            f32 lhs_val = array_get_scalar_from_index(lhs, (size_t[]){i, k});
-                            f32 rhs_val = array_get_scalar_from_index(rhs, (size_t[]){k, j});
-                            sum += lhs_val * rhs_val;
+                    for (size_t k = k0; k < kmax; k++) {
+                        f32 lhs_val = lhs_p[i * lhs_s0 + k * lhs_s1];
+                        for (size_t j = j0; j < jmax; j++) {
+                            f32 rhs_val = rhs_p[k * rhs_s0 + j * rhs_s1];
+                            f32 res_val = mul32(lhs_val, rhs_val);
+                            f32 out_val = out_p[i * out_s0 + j * out_s1];
+                            out_p[i * out_s0 + j * out_s1] = sum32(out_val, res_val);
                         }
-                        array_set_scalar_from_index(out_array, (size_t[]){i, j}, sum);
                     }
                 }
             }
         }
     }
-
     return out_array;
 }
 
@@ -627,7 +654,7 @@ NDArray* array_array_dot(NDArray* lhs, NDArray* rhs) {
     iterator_free(&lhs_iter);
     iterator_free(&rhs_iter);
     NDArray* out_array = array_empty((size_t[]){1}, 1);
-    array_set_scalar_from_index(out_array, (size_t[]){0}, acc);
+    out_array->data->mem[0] = acc;
     free(dims);
     return out_array;
 }
@@ -638,16 +665,22 @@ NDArray* array_reduce(
         size_t reduce_ndim,
         binop acc_fn,
         f32 acc_init) {
-    size_t* transpose_dim = size_t_create(array->ndim);
-    transpose_dim = move_reduce_dims_to_front(transpose_dim, reduce_dim, reduce_ndim, array->ndim);
-    NDArray* transformed_array = array_transpose(array, transpose_dim);
+    // transpose
+    size_t* move_dst = size_t_create(reduce_ndim);
+    for (size_t i = 0; i < reduce_ndim; i++)
+        move_dst[i] = i;
+    NDArray* transformed_array = array_move_axis(array, reduce_dim, move_dst, reduce_ndim);
     size_t* keepdims_shape = size_t_copy(size_t_create(array->ndim), array->shape, array->ndim);
     for (size_t i = 0; i < reduce_ndim; i++)
         keepdims_shape[reduce_dim[i]] = 1;
+
+    // reshape
     size_t total_size = prod(array->shape, array->ndim);
     size_t rest_size = prod(keepdims_shape, array->ndim);
     size_t reduce_size = total_size / rest_size;
     transformed_array = array_reshape(transformed_array, (size_t[]){reduce_size, rest_size}, 2);
+
+    // iterate
     size_t* iter_dims = size_t_set(size_t_create(2), ITERDIM, 2);
     NDArray* out_array = array_empty((size_t[]){rest_size}, 1);
     NDIterator iter = array_iter(transformed_array, iter_dims);
@@ -660,8 +693,10 @@ NDArray* array_reduce(
             sum = acc_fn(sum, *iter.ptr);
         out_array->data->mem[i] = sum;
     }
+
     out_array = array_reshape(out_array, keepdims_shape, array->ndim);
-    free(transpose_dim);
+
+    free(move_dst);
     free(keepdims_shape);
     free(iter_dims);
     iterator_free(&iter);
