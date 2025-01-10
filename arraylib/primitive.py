@@ -45,3 +45,8 @@ repr_p = unidispatch(_no_impl_error)
 
 # other
 free_p = unidispatch(_no_impl_error)
+
+# reductions
+reduce_sum_p = unidispatch(_no_impl_error)
+reduce_max_p = unidispatch(_no_impl_error)
+reduce_min_p = unidispatch(_no_impl_error)
