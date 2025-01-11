@@ -51,6 +51,7 @@ def array(elems: list[tp.Any]) -> arraylib.NDArray:
 
     def flatten(elems, dim):
         if not isinstance(elems, tp.Sequence):
+            assert isinstance(elems, (float, int)), f"{elems=}"
             return [elems]
         if dim in shape:
             msg = f"{dim=} mismatch: {shape[dim]=}!={len(elems)=}"
