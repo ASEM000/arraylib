@@ -7,6 +7,43 @@ from arraylib.clib import lib, ffi
 import arraylib.primitive as primitive
 import arraylib
 
+## -------------------------------------------------------------------------------------------------
+## UTILS
+## -------------------------------------------------------------------------------------------------
+
+
+def slice_to_range(
+    shape: tuple[int],
+    ndim: int,
+    slices: tp.Sequence[slice],
+) -> tuple[tuple[int, ...], tuple[int, ...], tuple[int, ...]]:
+    assert isinstance(slices, tp.Sequence)
+    assert all(isinstance(si, slice) for si in slices)
+    assert len(slices) == ndim
+    start = tuple(si.start or 0 for si in slices)
+    end = tuple(si.stop or shape[i] for i, si in enumerate(slices))
+    step = tuple(si.step or 1 for si in slices)
+    shape = shape
+    assert all(0 <= si < ei <= shape[i] for i, (si, ei) in enumerate(zip(start, end)))
+    return start, end, step
+
+
+def normalize_index(index: tp.Sequence[tp.Any] | int) -> tp.TypeGuard[tuple[tp.Any]]:
+    return tuple(index) if isinstance(index, tp.Sequence) else (index,)
+
+
+def pprepr(array):
+    return primitive.repr_p(array)
+
+
+def ppstr(array):
+    return primitive.str_p(array)
+
+
+## -------------------------------------------------------------------------------------------------
+## INITIALIZATION
+## -------------------------------------------------------------------------------------------------
+
 
 def array(elems: list[tp.Any]) -> arraylib.NDArray:
     assert isinstance(elems, tp.Sequence)
@@ -71,6 +108,15 @@ def linspace(start: int, end: int, n: int):
     return arraylib.NDArray(buffer=lib.array_linspace(start, end, n))
 
 
+def free(array):
+    primitive.free_p(array)
+
+
+## -------------------------------------------------------------------------------------------------
+## INTEROPERABILITY
+## -------------------------------------------------------------------------------------------------
+
+
 def to_buffer(array: arraylib.NDArray):
     array = array.buffer
     return ffi.buffer(array.data.mem, array.data.size * 4)
@@ -96,7 +142,9 @@ def to_numpy(array: arraylib.NDArray):
     )
 
 
-# binary operations
+## -------------------------------------------------------------------------------------------------
+## ARRAY-ARRAY/ARRAY-SCALAR OPERATIONS
+## -------------------------------------------------------------------------------------------------
 
 
 def add(lhs, rhs):
@@ -136,9 +184,9 @@ def dot(lhs, rhs):
     return primitive.dot_p(lhs, rhs)
 
 
-# ------------------------------------------------------------------
-# unary operations
-# ------------------------------------------------------------------
+## -------------------------------------------------------------------------------------------------
+## ELEMENTWISE OPERATIONS
+## -------------------------------------------------------------------------------------------------
 
 
 def log(lhs):
@@ -153,9 +201,27 @@ def exp(lhs):
     return primitive.exp_p(lhs)
 
 
-# ------------------------------------------------------------------
-# reshaping
-# ------------------------------------------------------------------
+def wrap_elementwise_op(fn):
+    # a function that accept a float and return a float
+    # TODO: check the function signature
+    # additionally check if the function is numpy ufunc
+    @ffi.callback("float(float)")
+    def wrapped(x):
+        return fn(x)
+
+    return wrapped
+
+
+def apply(fn, array):
+    """Apply an elementwise function to an array"""
+    assert callable(fn)
+    fn = wrap_elementwise_op(fn)
+    return arraylib.NDArray(lib.array_op(fn, array.buffer))
+
+
+## -------------------------------------------------------------------------------------------------
+## RESHAPING
+## -------------------------------------------------------------------------------------------------
 
 
 def reshape(array, shape: tp.Sequence[int]):
@@ -192,9 +258,9 @@ def ravel(array):
     return primitive.ravel_p(array)
 
 
-# ------------------------------------------------------------------
-# comparison
-# ------------------------------------------------------------------
+## -------------------------------------------------------------------------------------------------
+## COMPARISON OPERATIONS
+## -------------------------------------------------------------------------------------------------
 
 
 def eq(lhs, rhs):
@@ -221,9 +287,9 @@ def gt(lhs, rhs):
     return primitive.gt_p(lhs, rhs)
 
 
-# ------------------------------------------------------------------
-# getter
-# ------------------------------------------------------------------
+## -------------------------------------------------------------------------------------------------
+## GETTERS
+## -------------------------------------------------------------------------------------------------
 
 
 def get_view_from_range(
@@ -251,26 +317,6 @@ def get_scalar_from_index(array, index: tp.Sequence[int]) -> int:
     return primitive.get_scalar_from_index_p(array, index)
 
 
-def slice_to_range(
-    shape: tuple[int],
-    ndim: int,
-    slices: tp.Sequence[slice],
-) -> tuple[tuple[int, ...], tuple[int, ...], tuple[int, ...]]:
-    assert isinstance(slices, tp.Sequence)
-    assert all(isinstance(si, slice) for si in slices)
-    assert len(slices) == ndim
-    start = tuple(si.start or 0 for si in slices)
-    end = tuple(si.stop or shape[i] for i, si in enumerate(slices))
-    step = tuple(si.step or 1 for si in slices)
-    shape = shape
-    assert all(0 <= si < ei <= shape[i] for i, (si, ei) in enumerate(zip(start, end)))
-    return start, end, step
-
-
-def normalize_index(index: tp.Sequence[tp.Any] | int) -> tp.TypeGuard[tuple[tp.Any]]:
-    return tuple(index) if isinstance(index, tp.Sequence) else (index,)
-
-
 def getitem(array, index: int | slice | tp.Sequence[int | slice]):
     index = normalize_index(index)
     assert len(index) == array.ndim, f"{len(index)} != {array.ndim}"
@@ -280,6 +326,11 @@ def getitem(array, index: int | slice | tp.Sequence[int | slice]):
         start, end, step = slice_to_range(array.shape, array.ndim, index)
         return get_view_from_range(array, start, end, step)
     raise NotImplementedError(f"Index type not supported: {index}")
+
+
+## -------------------------------------------------------------------------------------------------
+## SETTERS
+## -------------------------------------------------------------------------------------------------
 
 
 def set_scalar_from_index(array, index: tp.Sequence[int], value: int):
@@ -342,16 +393,9 @@ def setitem(array, index: int | slice | tp.Sequence[int | slice], value: float):
     return primitive.setitem_p(array, index, value)
 
 
-def free(array):
-    primitive.free_p(array)
-
-
-def pprepr(array):
-    return primitive.repr_p(array)
-
-
-def ppstr(array):
-    return primitive.str_p(array)
+## -------------------------------------------------------------------------------------------------
+## COPY
+## -------------------------------------------------------------------------------------------------
 
 
 def copy(array, deep=False):
@@ -361,7 +405,9 @@ def copy(array, deep=False):
     return lib.array_shallow_copy(array)
 
 
-# reductions
+## -------------------------------------------------------------------------------------------------
+## REDUCTIONS OPERATIONS
+## -------------------------------------------------------------------------------------------------
 
 
 def reduce_sum(array, axis=None):
@@ -369,6 +415,7 @@ def reduce_sum(array, axis=None):
     axis = tuple(range(array.ndim)) if axis is None else tuple(axis)
     assert 0 <= len(axis) <= array.ndim, "axis out of bounds"
     return primitive.reduce_sum_p(array, axis) if len(axis) else array
+
 
 def reduce_max(array, axis=None):
     assert isinstance(axis, tp.Sequence) or axis is None
@@ -382,3 +429,24 @@ def reduce_min(array, axis=None):
     axis = tuple(range(array.ndim)) if axis is None else tuple(axis)
     assert 0 <= len(axis) <= array.ndim, "axis out of bounds"
     return primitive.reduce_min_p(array, axis) if len(axis) else array
+
+
+def wrap_reduction_op(fn):
+    # a function that accept a float and return a float
+    # TODO: check the function signature
+
+    @ffi.callback("float(float, float)")
+    def wrapped(x, y):
+        return fn(x, y)
+
+    return wrapped
+
+
+def reduce(fn, array, axis=None, init=0.0):
+    """Reduce an array along an axis/axes with a python function"""
+    assert isinstance(axis, tp.Sequence) or axis is None
+    axis = tuple(range(array.ndim)) if axis is None else tuple(axis)
+    assert 0 <= len(axis) <= array.ndim, "axis out of bounds"
+    fn = wrap_reduction_op(fn)
+    axis = ffi.new("size_t[]", axis)
+    return arraylib.NDArray(lib.array_reduce(fn, array.buffer, axis, len(axis), init))
