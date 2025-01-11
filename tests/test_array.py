@@ -272,3 +272,26 @@ def test_set_index_from_scalar(index):
     a_al[index] = 10
     a_np[index] = 10
     assert_array_equal(a_al, a_np)
+
+
+@pytest.mark.parametrize(
+    "fn",
+    [np.log, np.exp, np.negative, np.sin, np.cos, np.tan, np.arctan, np.arcsin],
+)
+def test_unary_ops(fn):
+    a_al = al.arange(1, 1 + 3 * 4 * 5 * 6)
+    a_al = al.reshape(a_al, (3, 4, 5, 6))
+    a_np = np.arange(1, 1 + 3 * 4 * 5 * 6).reshape(3, 4, 5, 6)
+    b_al = al.apply(fn, a_al)
+    b_np = fn(a_np)
+    assert_array_equal(b_al, b_np)
+
+
+def test_reduce():
+    a_al = al.arange(1, 1 + 3 * 4 * 5 * 6)
+    a_al = al.reshape(a_al, (3, 4, 5, 6))
+    a_np = np.arange(1, 1 + 3 * 4 * 5 * 6).reshape(3, 4, 5, 6)
+    reduce_fn = lambda x, y: x + y  # x is the accumulator, y is the current value
+    b_al = al.reduce(reduce_fn, a_al, axis=(1, 2), init=0)
+    b_np = a_np.sum(axis=(1, 2), keepdims=True)
+    assert_array_equal(b_al, b_np)

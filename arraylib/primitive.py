@@ -15,10 +15,11 @@ matmul_p = bidispatch(_no_impl_error)
 dot_p = bidispatch(_no_impl_error)
 
 
-# unary operations (3)
+# elementwise operations (3)
 log_p = unidispatch(_no_impl_error)
 neg_p = unidispatch(_no_impl_error)
 exp_p = unidispatch(_no_impl_error)
+apply_p = unidispatch(_no_impl_error)
 
 # comparison operations (6)
 eq_p = bidispatch(_no_impl_error)
@@ -51,3 +52,4 @@ free_p = unidispatch(_no_impl_error)
 reduce_sum_p = unidispatch(_no_impl_error)
 reduce_max_p = unidispatch(_no_impl_error)
 reduce_min_p = unidispatch(_no_impl_error)
+reduce_p = unidispatch(_no_impl_error)

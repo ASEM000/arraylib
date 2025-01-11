@@ -25,6 +25,8 @@ from arraylib.core import (
     reduce_sum,
     reduce_min,
     move_axis,
+    reduce,
+    apply,
 )
 from arraylib.arraytypes import NDArray, JVPNDArray
 import arraylib.impl as impl
@@ -63,4 +65,6 @@ __all__ = [
     "reduce_sum",
     "reduce_min",
     "move_axis",
+    "reduce",
+    "apply",
 ]

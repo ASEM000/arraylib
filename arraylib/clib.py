@@ -150,7 +150,7 @@ NDArray* array_ravel(NDArray* array);
 // ARRAY-SCALAR OPERATIONS
 // -------------------------------------------------------------------------------------------------
 
-NDArray* array_scalar_op(NDArray* lhs, f32 rhs, binop fn);
+NDArray* array_scalar_op(binop fn, NDArray* lhs, f32 rhs);
 NDArray* array_scalar_add(NDArray* lhs, f32 rhs);
 NDArray* array_scalar_sub(NDArray* lhs, f32 rhs);
 NDArray* array_scalar_mul(NDArray* lhs, f32 rhs);
@@ -167,7 +167,7 @@ NDArray* array_array_matmul(NDArray* lhs, NDArray* rhs);
 // ARRAY-ARRAY OPERATIONS
 // -------------------------------------------------------------------------------------------------
 
-NDArray* array_array_scalar_op(NDArray* lhs, NDArray* rhs, binop fn);
+NDArray* array_array_scalar_op(binop fn, NDArray* lhs, NDArray* rhs);
 NDArray* array_array_sum(NDArray* lhs, NDArray* rhs);
 NDArray* array_array_sub(NDArray* lhs, NDArray* rhs);
 NDArray* array_array_mul(NDArray* lhs, NDArray* rhs);
@@ -186,7 +186,7 @@ NDArray* array_array_leq(NDArray* lhs, NDArray* rhs);
 // ELEMENTWISE OPERATIONS
 // -------------------------------------------------------------------------------------------------
 
-NDArray* array_op(NDArray* array, uniop fn);
+NDArray* array_op(uniop fn, NDArray* array);
 NDArray* array_log(NDArray* array);
 NDArray* array_neg(NDArray* array);
 NDArray* array_exp(NDArray* array);
@@ -195,12 +195,16 @@ NDArray* array_exp(NDArray* array);
 // REDUCTION OPERATIONS
 // -------------------------------------------------------------------------------------------------
 
-NDArray* array_reduce(NDArray* array, size_t* axes, size_t num_axes, binop acc_fn, f32 acc_init);
+NDArray* array_reduce(
+        binop acc_fn,
+        NDArray* array,
+        size_t* reduce_dims,
+        size_t reduce_ndim,
+        f32 acc_init);
 NDArray* array_array_dot(NDArray* lhs, NDArray* rhs);
 NDArray* array_reduce_max(NDArray* array, size_t* reduce_dims, size_t ndim);
 NDArray* array_reduce_min(NDArray* array, size_t* reduce_dims, size_t ndim);
 NDArray* array_reduce_sum(NDArray* array, size_t* reduce_dims, size_t ndim);
-
 """
 )
 

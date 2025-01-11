@@ -506,7 +506,7 @@ NDArray* array_ravel(NDArray* array) {
 // ARRAY-SCALAR OPERATIONS
 // -------------------------------------------------------------------------------------------------
 
-NDArray* array_scalar_op(NDArray* array, f32 rhs, binop fn) {
+NDArray* array_scalar_op(binop fn, NDArray* array, f32 rhs) {
     NDArray* out_array = array_empty(array->shape, array->ndim);
     size_t* dims = size_t_set(size_t_create(array->ndim), ITERDIM, array->ndim);
     NDIterator src = iter_array(array, dims);
@@ -519,11 +519,11 @@ NDArray* array_scalar_op(NDArray* array, f32 rhs, binop fn) {
     return out_array;
 }
 
-NDArray* array_scalar_add(NDArray* lhs, f32 rhs) { return array_scalar_op(lhs, rhs, sum32); }
-NDArray* array_scalar_sub(NDArray* lhs, f32 rhs) { return array_scalar_op(lhs, rhs, sub32); }
-NDArray* array_scalar_mul(NDArray* lhs, f32 rhs) { return array_scalar_op(lhs, rhs, mul32); }
-NDArray* array_scalar_div(NDArray* lhs, f32 rhs) { return array_scalar_op(lhs, rhs, div32); }
-NDArray* array_scalar_pow(NDArray* lhs, f32 rhs) { return array_scalar_op(lhs, rhs, pow32); }
+NDArray* array_scalar_add(NDArray* lhs, f32 rhs) { return array_scalar_op(sum32, lhs, rhs); }
+NDArray* array_scalar_sub(NDArray* lhs, f32 rhs) { return array_scalar_op(sub32, lhs, rhs); }
+NDArray* array_scalar_mul(NDArray* lhs, f32 rhs) { return array_scalar_op(mul32, lhs, rhs); }
+NDArray* array_scalar_div(NDArray* lhs, f32 rhs) { return array_scalar_op(div32, lhs, rhs); }
+NDArray* array_scalar_pow(NDArray* lhs, f32 rhs) { return array_scalar_op(pow32, lhs, rhs); }
 
 // -------------------------------------------------------------------------------------------------
 // MATMUL
@@ -576,7 +576,7 @@ NDArray* array_array_matmul(NDArray* lhs, NDArray* rhs) {
 // ARRAY-ARRAY OPERATIONS
 // -------------------------------------------------------------------------------------------------
 
-NDArray* array_array_scalar_op(NDArray* lhs, NDArray* rhs, binop fn) {
+NDArray* array_array_scalar_op(binop fn, NDArray* lhs, NDArray* rhs) {
     assert(lhs->ndim == rhs->ndim);
     for (size_t i = 0; i < lhs->ndim; i++)
         assert(lhs->shape[i] == rhs->shape[i]);
@@ -597,39 +597,39 @@ NDArray* array_array_scalar_op(NDArray* lhs, NDArray* rhs, binop fn) {
 }
 
 NDArray* array_array_sum(NDArray* lhs, NDArray* rhs) {
-    return array_array_scalar_op(lhs, rhs, sum32);
+    return array_array_scalar_op(sum32, lhs, rhs);
 }
 NDArray* array_array_sub(NDArray* lhs, NDArray* rhs) {
-    return array_array_scalar_op(lhs, rhs, sub32);
+    return array_array_scalar_op(sub32, lhs, rhs);
 }
 NDArray* array_array_mul(NDArray* lhs, NDArray* rhs) {
-    return array_array_scalar_op(lhs, rhs, mul32);
+    return array_array_scalar_op(mul32, lhs, rhs);
 }
 NDArray* array_array_div(NDArray* lhs, NDArray* rhs) {
-    return array_array_scalar_op(lhs, rhs, div32);
+    return array_array_scalar_op(div32, lhs, rhs);
 }
 NDArray* array_array_pow(NDArray* lhs, NDArray* rhs) {
-    return array_array_scalar_op(lhs, rhs, pow32);
+    return array_array_scalar_op(pow32, lhs, rhs);
 }
 
 // comparison
 NDArray* array_array_eq(NDArray* lhs, NDArray* rhs) {
-    return array_array_scalar_op(lhs, rhs, eq32);
+    return array_array_scalar_op(eq32, lhs, rhs);
 }
 NDArray* array_array_neq(NDArray* lhs, NDArray* rhs) {
-    return array_array_scalar_op(lhs, rhs, neq32);
+    return array_array_scalar_op(neq32, lhs, rhs);
 }
 NDArray* array_array_gt(NDArray* lhs, NDArray* rhs) {
-    return array_array_scalar_op(lhs, rhs, gt32);
+    return array_array_scalar_op(gt32, lhs, rhs);
 }
 NDArray* array_array_geq(NDArray* lhs, NDArray* rhs) {
-    return array_array_scalar_op(lhs, rhs, geq32);
+    return array_array_scalar_op(geq32, lhs, rhs);
 }
 NDArray* array_array_lt(NDArray* lhs, NDArray* rhs) {
-    return array_array_scalar_op(lhs, rhs, lt32);
+    return array_array_scalar_op(lt32, lhs, rhs);
 }
 NDArray* array_array_leq(NDArray* lhs, NDArray* rhs) {
-    return array_array_scalar_op(lhs, rhs, leq32);
+    return array_array_scalar_op(leq32, lhs, rhs);
 }
 
 // -------------------------------------------------------------------------------------------------
@@ -640,7 +640,7 @@ static inline f32 log32(f32 lhs) { return lhs == 0 ? 0 : logf(lhs); }
 static inline f32 neg32(f32 lhs) { return -lhs; }
 static inline f32 exp32(f32 lhs) { return expf(lhs); }
 
-NDArray* array_op(NDArray* array, uniop fn) {
+NDArray* array_op(uniop fn, NDArray* array) {
     NDArray* out_array = array_empty(array->shape, array->ndim);
     size_t* dims = size_t_set(size_t_create(array->ndim), ITERDIM, array->ndim);
     NDIterator src = iter_array(array, dims);
@@ -653,9 +653,9 @@ NDArray* array_op(NDArray* array, uniop fn) {
     return out_array;
 }
 
-NDArray* array_log(NDArray* array) { return array_op(array, log32); }
-NDArray* array_neg(NDArray* array) { return array_op(array, neg32); }
-NDArray* array_exp(NDArray* array) { return array_op(array, exp32); }
+NDArray* array_log(NDArray* array) { return array_op(log32, array ); }
+NDArray* array_neg(NDArray* array) { return array_op(neg32, array ); }
+NDArray* array_exp(NDArray* array) { return array_op(exp32, array); }
 
 // -------------------------------------------------------------------------------------------------
 // REDUCTION OPERATIONS
@@ -683,6 +683,7 @@ static NDArray* array_reshape_to_reduced_non_reduced(
         NDArray* array,
         size_t* reduce_dims,
         size_t reduce_ndim) {
+    // mainly used to reduce/apply along the leading axis
     size_t* move_dst = size_t_create(reduce_ndim);
     for (size_t i = 0; i < reduce_ndim; i++)
         move_dst[i] = i;
@@ -700,10 +701,11 @@ static NDArray* array_reshape_to_reduced_non_reduced(
 }
 
 NDArray* array_reduce(
+        binop acc_fn,
         NDArray* array,
         size_t* reduce_dims,
         size_t reduce_ndim,
-        binop acc_fn,
+
         f32 acc_init) {
     NDArray* reshaped_array = array_reshape_to_reduced_non_reduced(array, reduce_dims, reduce_ndim);
     size_t non_reduced_size = reshaped_array->shape[1];
@@ -734,13 +736,13 @@ NDArray* array_reduce(
 }
 
 NDArray* array_reduce_max(NDArray* array, size_t* reduce_dims, size_t ndim) {
-    return array_reduce(array, reduce_dims, ndim, max32, -INFINITY);
+    return array_reduce(max32, array, reduce_dims, ndim, -INFINITY);
 }
 
 NDArray* array_reduce_min(NDArray* array, size_t* reduce_dims, size_t ndim) {
-    return array_reduce(array, reduce_dims, ndim, min32, INFINITY);
+    return array_reduce(min32, array, reduce_dims, ndim, INFINITY);
 }
 
 NDArray* array_reduce_sum(NDArray* array, size_t* reduce_dims, size_t ndim) {
-    return array_reduce(array, reduce_dims, ndim, sum32, 0);
+    return array_reduce(sum32, array, reduce_dims, ndim, 0);
 }
