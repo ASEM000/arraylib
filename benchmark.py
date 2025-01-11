@@ -2,13 +2,14 @@ import time
 import numpy as np
 import arraylib as al
 
+N = 50
 
 def timeit(func, *args, **kwargs):
     start_time = time.time()
-    for _ in range(10):
+    for _ in range(N):
         result = func(*args, **kwargs)
     end_time = time.time()
-    return (end_time - start_time) / 10, result
+    return (end_time - start_time) / N, result
 
 
 if __name__ == "__main__":
