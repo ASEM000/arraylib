@@ -158,6 +158,7 @@ NDIterator iter_create(
         size_t* bstride,
         size_t* dims,
         size_t ndim) {
+
     for (size_t i = 0; i < ndim; i++)
         assert(dims[i] == ITERDIM || dims[i] < shape[i] && "ValueError: out of bounds.");
 
@@ -168,6 +169,7 @@ NDIterator iter_create(
     iter.bstride = bstride;                                    // does not own bstride
     iter.index = size_t_set(size_t_create(ndim), 0, ndim);     // own index
     iter.dims = size_t_copy(size_t_create(ndim), dims, ndim);  // own iterdims
+
     iter.counter = 0;
     iter.size = 1;
     for (size_t i = 0; i < ndim; i++)
