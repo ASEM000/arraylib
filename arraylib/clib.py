@@ -197,9 +197,9 @@ NDArray* array_exp(NDArray* array);
 
 NDArray* array_reduce(NDArray* array, size_t* axes, size_t num_axes, binop acc_fn, f32 acc_init);
 NDArray* array_array_dot(NDArray* lhs, NDArray* rhs);
-NDArray* array_reduce_max(NDArray* array, size_t* reduce_dim, size_t ndim);
-NDArray* array_reduce_min(NDArray* array, size_t* reduce_dim, size_t ndim);
-NDArray* array_reduce_sum(NDArray* array, size_t* reduce_dim, size_t ndim);
+NDArray* array_reduce_max(NDArray* array, size_t* reduce_dims, size_t ndim);
+NDArray* array_reduce_min(NDArray* array, size_t* reduce_dims, size_t ndim);
+NDArray* array_reduce_sum(NDArray* array, size_t* reduce_dims, size_t ndim);
 
 """
 )
