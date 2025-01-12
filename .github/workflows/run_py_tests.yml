@@ -24,4 +24,4 @@ jobs:
           make shared
       - name: pytest check
         run: |
-          pytest tests
+          pytest tests -vv
