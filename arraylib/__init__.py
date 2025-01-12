@@ -27,6 +27,7 @@ from arraylib.core import (
     move_axis,
     reduce,
     apply,
+    where,
 )
 from arraylib.arraytypes import NDArray, JVPNDArray
 import arraylib.impl as impl
@@ -67,4 +68,5 @@ __all__ = [
     "move_axis",
     "reduce",
     "apply",
+    "where",
 ]

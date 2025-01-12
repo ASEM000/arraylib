@@ -53,3 +53,8 @@ reduce_sum_p = unidispatch(_no_impl_error)
 reduce_max_p = unidispatch(_no_impl_error)
 reduce_min_p = unidispatch(_no_impl_error)
 reduce_p = unidispatch(_no_impl_error)
+
+
+# conditional
+
+where_p = unidispatch(_no_impl_error)

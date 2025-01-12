@@ -445,9 +445,22 @@ def wrap_reduction_op(fn):
 
 def reduce(fn, array, axis=None, init=0.0):
     """Reduce an array along an axis/axes with a python function"""
+    assert isinstance(array, arraylib.NDArray)
     assert isinstance(axis, tp.Sequence) or axis is None
     axis = tuple(range(array.ndim)) if axis is None else tuple(axis)
     assert 0 <= len(axis) <= array.ndim, "axis out of bounds"
     fn = wrap_reduction_op(fn)
     axis = ffi.new("size_t[]", axis)
     return arraylib.NDArray(lib.array_reduce(fn, array.buffer, axis, len(axis), init))
+
+
+## -------------------------------------------------------------------------------------------------
+## CONDITIONAL OPERATIONS
+## -------------------------------------------------------------------------------------------------
+
+
+def where(cond, on_true, on_false):
+    assert isinstance(cond, arraylib.NDArray)
+    assert isinstance(on_true, arraylib.NDArray)
+    assert isinstance(on_false, arraylib.NDArray)
+    return primitive.where_p(cond, on_true, on_false)
