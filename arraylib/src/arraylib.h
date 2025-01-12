@@ -19,6 +19,12 @@
 #include <stdlib.h>
 #include <string.h>
 #define ITERDIM SIZE_MAX
+#define ITERALL ((DimSpecs){.nspec = 0})
+
+#define FREE(ptr) \
+    _Generic((ptr), NDArray *: array_free, NDIterator *: iter_free, default: free)(ptr)
+
+// START
 
 // -------------------------------------------------------------------------------------------------
 // STRUCTS/TYPEDEFS
@@ -70,6 +76,16 @@ typedef struct {
  * @brief Iterator structure for iterating over an NDArray.
  */
 typedef struct {
+    size_t dim;
+    size_t value;
+} DimSpec;
+
+typedef struct {
+    DimSpec* specs;
+    size_t nspec;
+} DimSpecs;
+
+typedef struct {
     f32* ptr;        /**< Pointer to the current element. */
     size_t* shape;   /**< Shape of the array being iterated. */
     size_t* stride;  /**< Strides of the array being iterated. */
@@ -93,6 +109,10 @@ typedef struct {
  * @brief Allocates memory of the given size.
  * @param size Size of the memory to allocate.
  * @return Pointer to the allocated memory.
+ *
+ * @code
+ * void* memory = alloc(100 * sizeof(int)); // Allocates memory for 100 integers
+ * @endcode
  */
 void* alloc(size_t size);
 
@@ -105,6 +125,11 @@ void* alloc(size_t size);
  * @param nums Array of numbers.
  * @param ndim Number of dimensions.
  * @return Product of the numbers.
+ *
+ * @code
+ * size_t nums[] = {2, 3, 4};
+ * size_t result = prod(nums, 3); // result = 24
+ * @endcode
  */
 size_t prod(size_t* nums, size_t ndim);
 
@@ -112,6 +137,10 @@ size_t prod(size_t* nums, size_t ndim);
  * @brief Creates an array of size_t with the given number of dimensions.
  * @param ndim Number of dimensions.
  * @return Pointer to the created array.
+ *
+ * @code
+ * size_t* arr = size_t_create(3); // Creates an array of size 3
+ * @endcode
  */
 size_t* size_t_create(size_t ndim);
 
@@ -121,6 +150,11 @@ size_t* size_t_create(size_t ndim);
  * @param value Value to set.
  * @param size Size of the array.
  * @return Pointer to the destination array.
+ *
+ * @code
+ * size_t arr[3];
+ * size_t_set(arr, 5, 3); // arr = {5, 5, 5}
+ * @endcode
  */
 size_t* size_t_set(size_t* dst, size_t value, size_t size);
 
@@ -130,6 +164,12 @@ size_t* size_t_set(size_t* dst, size_t value, size_t size);
  * @param src Source array.
  * @param size Size of the arrays.
  * @return Pointer to the destination array.
+ *
+ * @code
+ * size_t src[] = {1, 2, 3};
+ * size_t dst[3];
+ * size_t_copy(dst, src, 3); // dst = {1, 2, 3}
+ * @endcode
  */
 size_t* size_t_copy(size_t* dst, size_t* src, size_t size);
 
@@ -139,6 +179,12 @@ size_t* size_t_copy(size_t* dst, size_t* src, size_t size);
  * @param stride Strides for each dimension.
  * @param ndim Number of dimensions.
  * @return Flat index.
+ *
+ * @code
+ * size_t index[] = {1, 1};
+ * size_t stride[] = {3, 1};
+ * size_t flat_idx = compute_flat_index(index, stride, 2); // flat_idx = 4
+ * @endcode
  */
 size_t compute_flat_index(size_t* index, size_t* stride, size_t ndim);
 
@@ -148,6 +194,10 @@ size_t compute_flat_index(size_t* index, size_t* stride, size_t ndim);
  * @param minval Minimum value.
  * @param maxval Maximum value.
  * @return Clamped value.
+ *
+ * @code
+ * f32 result = clamp(10.5, 0.0, 10.0); // result = 10.0
+ * @endcode
  */
 f32 clamp(f32 value, f32 minval, f32 maxval);
 
@@ -155,6 +205,11 @@ f32 clamp(f32 value, f32 minval, f32 maxval);
  * @brief Checks if an array is contiguous in memory.
  * @param array Array to check.
  * @return True if the array is contiguous, false otherwise.
+ *
+ * @code
+ * NDArray* array = array_zeros((size_t[]){2, 2}, 2);
+ * bool contiguous = is_contiguous(array); // contiguous = true
+ * @endcode
  */
 bool is_contiguous(NDArray* array);
 
@@ -163,6 +218,10 @@ bool is_contiguous(NDArray* array);
  * @param a Dividend.
  * @param b Divisor.
  * @return Ceiling division result.
+ *
+ * @code
+ * size_t result = cdiv(10, 3); // result = 4
+ * @endcode
  */
 size_t cdiv(size_t a, size_t b);
 
@@ -172,6 +231,12 @@ size_t cdiv(size_t a, size_t b);
  * @param shape Shape of the array.
  * @param ndim Number of dimensions.
  * @return Pointer to the destination array.
+ *
+ * @code
+ * size_t shape[] = {2, 3};
+ * size_t strides[2];
+ * compute_stride(strides, shape, 2); // strides = {3, 1}
+ * @endcode
  */
 size_t* compute_stride(size_t* dst, size_t* shape, size_t ndim);
 
@@ -182,6 +247,13 @@ size_t* compute_stride(size_t* dst, size_t* shape, size_t ndim);
  * @param stride Strides of the array.
  * @param ndim Number of dimensions.
  * @return Pointer to the destination array.
+ *
+ * @code
+ * size_t shape[] = {2, 3};
+ * size_t strides[] = {3, 1};
+ * size_t bstrides[2];
+ * compute_bstride(bstrides, shape, strides, 2); // bstrides = {3, 1}
+ * @endcode
  */
 size_t* compute_bstride(size_t* dst, size_t* shape, size_t* stride, size_t ndim);
 
@@ -193,6 +265,10 @@ size_t* compute_bstride(size_t* dst, size_t* shape, size_t* stride, size_t ndim)
  * @brief Creates an empty Data structure with the given size.
  * @param size Size of the memory block.
  * @return Pointer to the created Data structure.
+ *
+ * @code
+ * Data* data = data_empty(100); // Creates a Data structure with 100 elements
+ * @endcode
  */
 Data* data_empty(size_t size);
 
@@ -205,12 +281,22 @@ Data* data_empty(size_t size);
  * @param shape Array of dimensions.
  * @param ndim Number of dimensions.
  * @return Pointer to the created NDArray.
+ *
+ * @code
+ * size_t shape[] = {2, 3};
+ * NDArray* array = array_empty(shape, 2); // Creates a 2x3 empty array
+ * @endcode
  */
 NDArray* array_empty(size_t* shape, size_t ndim);
 
 /**
  * @brief Frees the memory allocated for an NDArray.
  * @param array Pointer to the NDArray to free.
+ *
+ * @code
+ * NDArray* array = array_zeros((size_t[]){2, 2}, 2);
+ * array_free(array); // Frees the memory
+ * @endcode
  */
 void array_free(NDArray* array);
 
@@ -227,26 +313,42 @@ void array_free(NDArray* array);
  * @param dims Dimensions to iterate over.
  * @param ndim Number of dimensions.
  * @return The created iterator.
+ *
+ * @code
+ * NDArray* array = array_zeros((size_t[]){2, 2}, 2);
+ * NDIterator iter = iter_create(array->data->mem, array->shape, array->stride, array->bstride, 2,
+ * ITERALL);
+ * @endcode
  */
 NDIterator iter_create(
         f32* ptr,
         size_t* shape,
         size_t* stride,
         size_t* bstride,
-        size_t* dims,
-        size_t ndim);
+        size_t ndim,
+        DimSpecs specs);
 
 /**
  * @brief Creates an iterator for an NDArray.
  * @param array Pointer to the NDArray.
  * @param dims Dimensions to iterate over.
  * @return The created iterator.
+ *
+ * @code
+ * NDArray* array = array_zeros((size_t[]){2, 2}, 2);
+ * NDIterator iter = iter_array(array, ITERALL);
+ * @endcode
  */
-NDIterator iter_array(NDArray* array, size_t* dims);
+NDIterator iter_array(NDArray* array, DimSpecs specs);
 
 /**
  * @brief Frees the memory allocated for an iterator.
  * @param iterator Pointer to the iterator to free.
+ *
+ * @code
+ * NDIterator iter = iter_array(array, ITERALL);
+ * iter_free(&iter); // Frees the iterator
+ * @endcode
  */
 void iter_free(NDIterator* iterator);
 
@@ -254,6 +356,13 @@ void iter_free(NDIterator* iterator);
  * @brief Advances the iterator to the next element.
  * @param iter Pointer to the iterator.
  * @return True if the iterator has more elements, false otherwise.
+ *
+ * @code
+ * NDIterator iter = iter_array(array, ITERALL);
+ * while (iter_next(&iter)) {
+ *     printf("%f ", *iter.ptr); // Prints each element
+ * }
+ * @endcode
  */
 bool iter_next(NDIterator* iter);
 
@@ -265,6 +374,11 @@ bool iter_next(NDIterator* iter);
  * @brief Creates a shallow copy of an NDArray.
  * @param array Pointer to the NDArray to copy.
  * @return Pointer to the shallow copy.
+ *
+ * @code
+ * NDArray* array = array_zeros((size_t[]){2, 2}, 2);
+ * NDArray* copy = array_shallow_copy(array); // Creates a shallow copy
+ * @endcode
  */
 NDArray* array_shallow_copy(NDArray* array);
 
@@ -272,6 +386,11 @@ NDArray* array_shallow_copy(NDArray* array);
  * @brief Creates a deep copy of an NDArray.
  * @param array Pointer to the NDArray to copy.
  * @return Pointer to the deep copy.
+ *
+ * @code
+ * NDArray* array = array_zeros((size_t[]){2, 2}, 2);
+ * NDArray* copy = array_deep_copy(array); // Creates a deep copy
+ * @endcode
  */
 NDArray* array_deep_copy(NDArray* array);
 
@@ -284,6 +403,11 @@ NDArray* array_deep_copy(NDArray* array);
  * @param shape Array of dimensions.
  * @param ndim Number of dimensions.
  * @return Pointer to the created NDArray.
+ *
+ * @code
+ * size_t shape[] = {2, 3};
+ * NDArray* array = array_zeros(shape, 2); // Creates a 2x3 array filled with zeros
+ * @endcode
  */
 NDArray* array_zeros(size_t* shape, size_t ndim);
 
@@ -293,6 +417,12 @@ NDArray* array_zeros(size_t* shape, size_t ndim);
  * @param shape Array of dimensions.
  * @param ndim Number of dimensions.
  * @return Pointer to the created NDArray.
+ *
+ * @code
+ * f32 elems[] = {1.0, 2.0, 3.0, 4.0};
+ * size_t shape[] = {2, 2};
+ * NDArray* array = array_fill(elems, shape, 2); // Creates a 2x2 array with the given elements
+ * @endcode
  */
 NDArray* array_fill(f32* elems, size_t* shape, size_t ndim);
 
@@ -301,6 +431,11 @@ NDArray* array_fill(f32* elems, size_t* shape, size_t ndim);
  * @param shape Array of dimensions.
  * @param ndim Number of dimensions.
  * @return Pointer to the created NDArray.
+ *
+ * @code
+ * size_t shape[] = {2, 2};
+ * NDArray* array = array_ones(shape, 2); // Creates a 2x2 array filled with ones
+ * @endcode
  */
 NDArray* array_ones(size_t* shape, size_t ndim);
 
@@ -310,6 +445,10 @@ NDArray* array_ones(size_t* shape, size_t ndim);
  * @param end Ending value.
  * @param step Step size.
  * @return Pointer to the created NDArray.
+ *
+ * @code
+ * NDArray* array = array_arange(0.0, 5.0, 1.0); // Creates an array [0.0, 1.0, 2.0, 3.0, 4.0]
+ * @endcode
  */
 NDArray* array_arange(f32 start, f32 end, f32 step);
 
@@ -319,6 +458,10 @@ NDArray* array_arange(f32 start, f32 end, f32 step);
  * @param end Ending value.
  * @param n Number of values.
  * @return Pointer to the created NDArray.
+ *
+ * @code
+ * NDArray* array = array_linspace(0.0, 1.0, 5); // Creates an array [0.0, 0.25, 0.5, 0.75, 1.0]
+ * @endcode
  */
 NDArray* array_linspace(f32 start, f32 end, f32 n);
 
@@ -331,6 +474,11 @@ NDArray* array_linspace(f32 start, f32 end, f32 n);
  * @param array Pointer to the NDArray.
  * @param index Array of indices.
  * @return The scalar value.
+ *
+ * @code
+ * size_t index[] = {1, 1};
+ * f32 value = array_get_scalar_from_index(array, index); // Gets the value at index (1, 1)
+ * @endcode
  */
 f32 array_get_scalar_from_index(NDArray* array, size_t* index);
 
@@ -341,6 +489,13 @@ f32 array_get_scalar_from_index(NDArray* array, size_t* index);
  * @param end Array of end indices.
  * @param step Array of step sizes.
  * @return Pointer to the created view.
+ *
+ * @code
+ * size_t start[] = {0, 0};
+ * size_t end[] = {2, 2};
+ * size_t step[] = {1, 1};
+ * NDArray* view = array_get_view_from_range(array, start, end, step); // Gets a view of the array
+ * @endcode
  */
 NDArray* array_get_view_from_range(NDArray* array, size_t* start, size_t* end, size_t* step);
 
@@ -354,6 +509,11 @@ NDArray* array_get_view_from_range(NDArray* array, size_t* start, size_t* end, s
  * @param index Array of indices.
  * @param value Value to set.
  * @return Pointer to the NDArray.
+ *
+ * @code
+ * size_t index[] = {1, 1};
+ * array_set_scalar_from_index(array, index, 5.0); // Sets the value at index (1, 1) to 5.0
+ * @endcode
  */
 NDArray* array_set_scalar_from_index(NDArray* array, size_t* index, f32 value);
 
@@ -365,6 +525,13 @@ NDArray* array_set_scalar_from_index(NDArray* array, size_t* index, f32 value);
  * @param step Array of step sizes.
  * @param value Value to set.
  * @return Pointer to the NDArray.
+ *
+ * @code
+ * size_t start[] = {0, 0};
+ * size_t end[] = {2, 2};
+ * size_t step[] = {1, 1};
+ * array_set_scalar_from_range(array, start, end, step, 5.0); // Sets all values in the range to 5.0
+ * @endcode
  */
 NDArray* array_set_scalar_from_range(
         NDArray* array,
@@ -381,6 +548,14 @@ NDArray* array_set_scalar_from_range(
  * @param step Array of step sizes.
  * @param value Pointer to the NDArray to set.
  * @return Pointer to the NDArray.
+ *
+ * @code
+ * size_t start[] = {0, 0};
+ * size_t end[] = {2, 2};
+ * size_t step[] = {1, 1};
+ * NDArray* value = array_zeros((size_t[]){2, 2}, 2);
+ * array_set_view_from_array(array, start, end, step, value); // Sets the view to the value array
+ * @endcode
  */
 NDArray* array_set_view_from_array(
         NDArray* array,
@@ -399,6 +574,12 @@ NDArray* array_set_view_from_array(
  * @param shape Array of dimensions.
  * @param ndim Number of dimensions.
  * @return Pointer to the reshaped NDArray.
+ *
+ * @code
+ * size_t new_shape[] = {4};
+ * NDArray* reshaped = array_reshape(array, new_shape, 1); // Reshapes the array to a 1D array of
+ * size 4
+ * @endcode
  */
 NDArray* array_reshape(NDArray* array, size_t* shape, size_t ndim);
 
@@ -407,6 +588,11 @@ NDArray* array_reshape(NDArray* array, size_t* shape, size_t ndim);
  * @param array Pointer to the NDArray.
  * @param dst Array of destination axes.
  * @return Pointer to the transposed NDArray.
+ *
+ * @code
+ * size_t dst[] = {1, 0};
+ * NDArray* transposed = array_transpose(array, dst); // Transposes the array
+ * @endcode
  */
 NDArray* array_transpose(NDArray* array, size_t* dst);
 
@@ -417,6 +603,12 @@ NDArray* array_transpose(NDArray* array, size_t* dst);
  * @param dst Array of destination axes.
  * @param ndim Number of dimensions.
  * @return Pointer to the NDArray with moved axes.
+ *
+ * @code
+ * size_t src[] = {0, 1};
+ * size_t dst[] = {1, 0};
+ * NDArray* moved = array_move_axis(array, src, dst, 2); // Swaps the axes
+ * @endcode
  */
 NDArray* array_move_axis(NDArray* array, size_t* src, size_t* dst, size_t ndim);
 
@@ -424,6 +616,10 @@ NDArray* array_move_axis(NDArray* array, size_t* src, size_t* dst, size_t ndim);
  * @brief Flattens an NDArray into a 1D array.
  * @param array Pointer to the NDArray.
  * @return Pointer to the flattened NDArray.
+ *
+ * @code
+ * NDArray* flattened = array_ravel(array); // Flattens the array
+ * @endcode
  */
 NDArray* array_ravel(NDArray* array);
 
@@ -437,6 +633,10 @@ NDArray* array_ravel(NDArray* array);
  * @param lhs Pointer to the NDArray.
  * @param rhs Scalar value.
  * @return Pointer to the resulting NDArray.
+ *
+ * @code
+ * NDArray* result = array_scalar_op(add, array, 5.0); // Adds 5.0 to each element
+ * @endcode
  */
 NDArray* array_scalar_op(binop fn, NDArray* lhs, f32 rhs);
 
@@ -445,6 +645,10 @@ NDArray* array_scalar_op(binop fn, NDArray* lhs, f32 rhs);
  * @param lhs Pointer to the NDArray.
  * @param rhs Scalar value.
  * @return Pointer to the resulting NDArray.
+ *
+ * @code
+ * NDArray* result = array_scalar_add(array, 5.0); // Adds 5.0 to each element
+ * @endcode
  */
 NDArray* array_scalar_add(NDArray* lhs, f32 rhs);
 
@@ -453,6 +657,10 @@ NDArray* array_scalar_add(NDArray* lhs, f32 rhs);
  * @param lhs Pointer to the NDArray.
  * @param rhs Scalar value.
  * @return Pointer to the resulting NDArray.
+ *
+ * @code
+ * NDArray* result = array_scalar_sub(array, 5.0); // Subtracts 5.0 from each element
+ * @endcode
  */
 NDArray* array_scalar_sub(NDArray* lhs, f32 rhs);
 
@@ -461,6 +669,10 @@ NDArray* array_scalar_sub(NDArray* lhs, f32 rhs);
  * @param lhs Pointer to the NDArray.
  * @param rhs Scalar value.
  * @return Pointer to the resulting NDArray.
+ *
+ * @code
+ * NDArray* result = array_scalar_mul(array, 5.0); // Multiplies each element by 5.0
+ * @endcode
  */
 NDArray* array_scalar_mul(NDArray* lhs, f32 rhs);
 
@@ -469,6 +681,10 @@ NDArray* array_scalar_mul(NDArray* lhs, f32 rhs);
  * @param lhs Pointer to the NDArray.
  * @param rhs Scalar value.
  * @return Pointer to the resulting NDArray.
+ *
+ * @code
+ * NDArray* result = array_scalar_div(array, 5.0); // Divides each element by 5.0
+ * @endcode
  */
 NDArray* array_scalar_div(NDArray* lhs, f32 rhs);
 
@@ -477,6 +693,10 @@ NDArray* array_scalar_div(NDArray* lhs, f32 rhs);
  * @param lhs Pointer to the NDArray.
  * @param rhs Scalar value.
  * @return Pointer to the resulting NDArray.
+ *
+ * @code
+ * NDArray* result = array_scalar_pow(array, 2.0); // Squares each element
+ * @endcode
  */
 NDArray* array_scalar_pow(NDArray* lhs, f32 rhs);
 
@@ -489,6 +709,10 @@ NDArray* array_scalar_pow(NDArray* lhs, f32 rhs);
  * @param lhs Pointer to the left-hand side NDArray.
  * @param rhs Pointer to the right-hand side NDArray.
  * @return Pointer to the resulting NDArray.
+ *
+ * @code
+ * NDArray* result = array_array_matmul(array1, array2); // Performs matrix multiplication
+ * @endcode
  */
 NDArray* array_array_matmul(NDArray* lhs, NDArray* rhs);
 
@@ -502,6 +726,10 @@ NDArray* array_array_matmul(NDArray* lhs, NDArray* rhs);
  * @param lhs Pointer to the left-hand side NDArray.
  * @param rhs Pointer to the right-hand side NDArray.
  * @return Pointer to the resulting NDArray.
+ *
+ * @code
+ * NDArray* result = array_array_scalar_op(add, array1, array2); // Adds two arrays element-wise
+ * @endcode
  */
 NDArray* array_array_scalar_op(binop fn, NDArray* lhs, NDArray* rhs);
 
@@ -510,6 +738,10 @@ NDArray* array_array_scalar_op(binop fn, NDArray* lhs, NDArray* rhs);
  * @param lhs Pointer to the left-hand side NDArray.
  * @param rhs Pointer to the right-hand side NDArray.
  * @return Pointer to the resulting NDArray.
+ *
+ * @code
+ * NDArray* result = array_array_sum(array1, array2); // Adds two arrays element-wise
+ * @endcode
  */
 NDArray* array_array_sum(NDArray* lhs, NDArray* rhs);
 
@@ -518,6 +750,10 @@ NDArray* array_array_sum(NDArray* lhs, NDArray* rhs);
  * @param lhs Pointer to the left-hand side NDArray.
  * @param rhs Pointer to the right-hand side NDArray.
  * @return Pointer to the resulting NDArray.
+ *
+ * @code
+ * NDArray* result = array_array_sub(array1, array2); // Subtracts two arrays element-wise
+ * @endcode
  */
 NDArray* array_array_sub(NDArray* lhs, NDArray* rhs);
 
@@ -526,6 +762,10 @@ NDArray* array_array_sub(NDArray* lhs, NDArray* rhs);
  * @param lhs Pointer to the left-hand side NDArray.
  * @param rhs Pointer to the right-hand side NDArray.
  * @return Pointer to the resulting NDArray.
+ *
+ * @code
+ * NDArray* result = array_array_mul(array1, array2); // Multiplies two arrays element-wise
+ * @endcode
  */
 NDArray* array_array_mul(NDArray* lhs, NDArray* rhs);
 
@@ -534,6 +774,10 @@ NDArray* array_array_mul(NDArray* lhs, NDArray* rhs);
  * @param lhs Pointer to the left-hand side NDArray.
  * @param rhs Pointer to the right-hand side NDArray.
  * @return Pointer to the resulting NDArray.
+ *
+ * @code
+ * NDArray* result = array_array_div(array1, array2); // Divides two arrays element-wise
+ * @endcode
  */
 NDArray* array_array_div(NDArray* lhs, NDArray* rhs);
 
@@ -542,6 +786,10 @@ NDArray* array_array_div(NDArray* lhs, NDArray* rhs);
  * @param lhs Pointer to the left-hand side NDArray.
  * @param rhs Pointer to the right-hand side NDArray.
  * @return Pointer to the resulting NDArray.
+ *
+ * @code
+ * NDArray* result = array_array_pow(array1, array2); // Raises array1 to the power of array2
+ * @endcode
  */
 NDArray* array_array_pow(NDArray* lhs, NDArray* rhs);
 
@@ -550,6 +798,10 @@ NDArray* array_array_pow(NDArray* lhs, NDArray* rhs);
  * @param lhs Pointer to the left-hand side NDArray.
  * @param rhs Pointer to the right-hand side NDArray.
  * @return Pointer to the resulting NDArray.
+ *
+ * @code
+ * NDArray* result = array_array_eq(array1, array2); // Checks for element-wise equality
+ * @endcode
  */
 NDArray* array_array_eq(NDArray* lhs, NDArray* rhs);
 
@@ -558,6 +810,10 @@ NDArray* array_array_eq(NDArray* lhs, NDArray* rhs);
  * @param lhs Pointer to the left-hand side NDArray.
  * @param rhs Pointer to the right-hand side NDArray.
  * @return Pointer to the resulting NDArray.
+ *
+ * @code
+ * NDArray* result = array_array_neq(array1, array2); // Checks for element-wise inequality
+ * @endcode
  */
 NDArray* array_array_neq(NDArray* lhs, NDArray* rhs);
 
@@ -566,6 +822,10 @@ NDArray* array_array_neq(NDArray* lhs, NDArray* rhs);
  * @param lhs Pointer to the left-hand side NDArray.
  * @param rhs Pointer to the right-hand side NDArray.
  * @return Pointer to the resulting NDArray.
+ *
+ * @code
+ * NDArray* result = array_array_gt(array1, array2); // Checks if array1 > array2 element-wise
+ * @endcode
  */
 NDArray* array_array_gt(NDArray* lhs, NDArray* rhs);
 
@@ -575,6 +835,10 @@ NDArray* array_array_gt(NDArray* lhs, NDArray* rhs);
  * @param lhs Pointer to the left-hand side NDArray.
  * @param rhs Pointer to the right-hand side NDArray.
  * @return Pointer to the resulting NDArray.
+ *
+ * @code
+ * NDArray* result = array_array_geq(array1, array2); // Checks if array1 >= array2 element-wise
+ * @endcode
  */
 NDArray* array_array_geq(NDArray* lhs, NDArray* rhs);
 
@@ -583,6 +847,10 @@ NDArray* array_array_geq(NDArray* lhs, NDArray* rhs);
  * @param lhs Pointer to the left-hand side NDArray.
  * @param rhs Pointer to the right-hand side NDArray.
  * @return Pointer to the resulting NDArray.
+ *
+ * @code
+ * NDArray* result = array_array_lt(array1, array2); // Checks if array1 < array2 element-wise
+ * @endcode
  */
 NDArray* array_array_lt(NDArray* lhs, NDArray* rhs);
 
@@ -592,6 +860,10 @@ NDArray* array_array_lt(NDArray* lhs, NDArray* rhs);
  * @param lhs Pointer to the left-hand side NDArray.
  * @param rhs Pointer to the right-hand side NDArray.
  * @return Pointer to the resulting NDArray.
+ *
+ * @code
+ * NDArray* result = array_array_leq(array1, array2); // Checks if array1 <= array2 element-wise
+ * @endcode
  */
 NDArray* array_array_leq(NDArray* lhs, NDArray* rhs);
 
@@ -600,9 +872,21 @@ NDArray* array_array_leq(NDArray* lhs, NDArray* rhs);
 // -------------------------------------------------------------------------------------------------
 
 /**
+ * @brief Apply fn to all items of NDArray.
+ * @param fn Unary function to to apply.
+ * @param array Pointer to the NDArray.
+ * @return Pointer to the resulting NDArray.
+ */
+NDArray* array_op(uniop fn, NDArray* array);
+
+/**
  * @brief Computes the natural logarithm of an NDArray element-wise.
  * @param array Pointer to the NDArray.
  * @return Pointer to the resulting NDArray.
+ *
+ * @code
+ * NDArray* result = array_log(array); // Computes the natural log of each element
+ * @endcode
  */
 NDArray* array_log(NDArray* array);
 
@@ -610,6 +894,10 @@ NDArray* array_log(NDArray* array);
  * @brief Negates an NDArray element-wise.
  * @param array Pointer to the NDArray.
  * @return Pointer to the resulting NDArray.
+ *
+ * @code
+ * NDArray* result = array_neg(array); // Negates each element
+ * @endcode
  */
 NDArray* array_neg(NDArray* array);
 
@@ -617,6 +905,10 @@ NDArray* array_neg(NDArray* array);
  * @brief Computes the exponential of an NDArray element-wise.
  * @param array Pointer to the NDArray.
  * @return Pointer to the resulting NDArray.
+ *
+ * @code
+ * NDArray* result = array_exp(array); // Computes the exponential of each element
+ * @endcode
  */
 NDArray* array_exp(NDArray* array);
 
@@ -629,6 +921,10 @@ NDArray* array_exp(NDArray* array);
  * @param lhs Pointer to the left-hand side NDArray.
  * @param rhs Pointer to the right-hand side NDArray.
  * @return Pointer to the resulting NDArray.
+ *
+ * @code
+ * NDArray* result = array_array_dot(array1, array2); // Computes the dot product
+ * @endcode
  */
 NDArray* array_array_dot(NDArray* lhs, NDArray* rhs);
 
@@ -640,6 +936,11 @@ NDArray* array_array_dot(NDArray* lhs, NDArray* rhs);
  * @param num_axes Number of axes.
  * @param acc_init Initial value for the accumulator.
  * @return Pointer to the resulting NDArray.
+ *
+ * @code
+ * size_t axes[] = {0};
+ * NDArray* result = array_reduce(add, array, axes, 1, 0.0); // Sums along the first axis
+ * @endcode
  */
 NDArray* array_reduce(binop acc_fn, NDArray* array, size_t* axes, size_t num_axes, f32 acc_init);
 
@@ -649,6 +950,11 @@ NDArray* array_reduce(binop acc_fn, NDArray* array, size_t* axes, size_t num_axe
  * @param reduce_dims Array of dimensions to reduce.
  * @param ndim Number of dimensions.
  * @return Pointer to the resulting NDArray.
+ *
+ * @code
+ * size_t reduce_dims[] = {0};
+ * NDArray* result = array_reduce_max(array, reduce_dims, 1); // Finds the max along the first axis
+ * @endcode
  */
 NDArray* array_reduce_max(NDArray* array, size_t* reduce_dims, size_t ndim);
 
@@ -658,6 +964,11 @@ NDArray* array_reduce_max(NDArray* array, size_t* reduce_dims, size_t ndim);
  * @param reduce_dims Array of dimensions to reduce.
  * @param ndim Number of dimensions.
  * @return Pointer to the resulting NDArray.
+ *
+ * @code
+ * size_t reduce_dims[] = {0};
+ * NDArray* result = array_reduce_min(array, reduce_dims, 1); // Finds the min along the first axis
+ * @endcode
  */
 NDArray* array_reduce_min(NDArray* array, size_t* reduce_dims, size_t ndim);
 
@@ -667,7 +978,14 @@ NDArray* array_reduce_min(NDArray* array, size_t* reduce_dims, size_t ndim);
  * @param reduce_dims Array of dimensions to reduce.
  * @param ndim Number of dimensions.
  * @return Pointer to the resulting NDArray.
+ *
+ * @code
+ * size_t reduce_dims[] = {0};
+ * NDArray* result = array_reduce_sum(array, reduce_dims, 1); // Sums along the first axis
+ * @endcode
  */
 NDArray* array_reduce_sum(NDArray* array, size_t* reduce_dims, size_t ndim);
+
+// END
 
 #endif  // ARRAYLIB_H

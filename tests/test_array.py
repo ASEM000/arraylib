@@ -96,13 +96,10 @@ def test_linspace(start, stop, num):
 def test_elementwise_ops(a_data, b_data, op_func, op_name):
     a_al = al.array(a_data)
     b_al = al.array(b_data)
-
     a_np = np.array(a_data, dtype=np.float32)
     b_np = np.array(b_data, dtype=np.float32)
-
     c_al = op_func(a_al, b_al)
     c_np = op_func(a_np, b_np)
-
     assert_array_equal(c_al, c_np)
 
 
@@ -230,7 +227,6 @@ def test_reduce_sum(axis):
 
     a_np = np.arange(1, 1 + 3 * 4 * 5 * 6).reshape(3, 4, 5, 6)
     b_np = np.sum(a_np, axis=axis, keepdims=True)
-
     assert_array_equal(b_al, b_np)
 
 

@@ -67,8 +67,7 @@ void test_array_creation() {
 void test_iterator() {
     size_t shape[] = {2, 3};
     NDArray* array = array_empty(shape, 2);
-    size_t* dims = size_t_set(size_t_create(array->ndim), ITERDIM, array->ndim);
-    NDIterator iter = iter_array(array, dims);
+    NDIterator iter = iter_array(array, (DimSpecs){.nspec=0});
     TEST(assert(iter.ptr != NULL));
     TEST(assert(iter.size == 6));
 
@@ -76,7 +75,6 @@ void test_iterator() {
     while (iter_next(&iter))
         count++;
     TEST(assert(count == 6));
-    free(dims);
     array_free(array);
 }
 
