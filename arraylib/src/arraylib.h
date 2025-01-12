@@ -24,6 +24,8 @@
 #define FREE(ptr) \
     _Generic((ptr), NDArray *: array_free, NDIterator *: iter_free, default: free)(ptr)
 
+// START
+
 // -------------------------------------------------------------------------------------------------
 // STRUCTS/TYPEDEFS
 // -------------------------------------------------------------------------------------------------
@@ -870,6 +872,14 @@ NDArray* array_array_leq(NDArray* lhs, NDArray* rhs);
 // -------------------------------------------------------------------------------------------------
 
 /**
+ * @brief Apply fn to all items of NDArray.
+ * @param fn Unary function to to apply.
+ * @param array Pointer to the NDArray.
+ * @return Pointer to the resulting NDArray.
+ */
+NDArray* array_op(uniop fn, NDArray* array);
+
+/**
  * @brief Computes the natural logarithm of an NDArray element-wise.
  * @param array Pointer to the NDArray.
  * @return Pointer to the resulting NDArray.
@@ -975,5 +985,7 @@ NDArray* array_reduce_min(NDArray* array, size_t* reduce_dims, size_t ndim);
  * @endcode
  */
 NDArray* array_reduce_sum(NDArray* array, size_t* reduce_dims, size_t ndim);
+
+// END
 
 #endif  // ARRAYLIB_H
