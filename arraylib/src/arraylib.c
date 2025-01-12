@@ -527,6 +527,13 @@ NDArray* array_scalar_mul(NDArray* lhs, f32 rhs) { return array_scalar_op(mul32,
 NDArray* array_scalar_div(NDArray* lhs, f32 rhs) { return array_scalar_op(div32, lhs, rhs); }
 NDArray* array_scalar_pow(NDArray* lhs, f32 rhs) { return array_scalar_op(pow32, lhs, rhs); }
 
+NDArray* array_scalar_eq(NDArray* lhs, f32 rhs) { return array_scalar_op(eq32, lhs, rhs); }
+NDArray* array_scalar_neq(NDArray* lhs, f32 rhs) { return array_scalar_op(neq32, lhs, rhs); }
+NDArray* array_scalar_lt(NDArray* lhs, f32 rhs) { return array_scalar_op(lt32, lhs, rhs); }
+NDArray* array_scalar_leq(NDArray* lhs, f32 rhs) { return array_scalar_op(leq32, lhs, rhs); }
+NDArray* array_scalar_gt(NDArray* lhs, f32 rhs) { return array_scalar_op(gt32, lhs, rhs); }
+NDArray* array_scalar_geq(NDArray* lhs, f32 rhs) { return array_scalar_op(geq32, lhs, rhs); }
+
 // -------------------------------------------------------------------------------------------------
 // MATMUL
 // -------------------------------------------------------------------------------------------------
@@ -735,4 +742,30 @@ NDArray* array_reduce_min(NDArray* array, size_t* reduce_dims, size_t ndim) {
 
 NDArray* array_reduce_sum(NDArray* array, size_t* reduce_dims, size_t ndim) {
     return array_reduce(sum32, array, reduce_dims, ndim, 0);
+}
+
+// -------------------------------------------------------------------------------------------------
+// ARRAY-ARRAY-ARRAY OPERATIONS
+// -------------------------------------------------------------------------------------------------
+
+NDArray* array_where(NDArray* cond, NDArray* on_true, NDArray* on_false) {
+    assert(cond->ndim == on_true->ndim && on_true->ndim && on_false->ndim);
+    for (size_t i = 0; i < on_true->ndim; i++)
+        assert(cond->shape[i] == on_true->shape[i] && on_true->shape[i] == on_false->shape[i]);
+
+    NDArray* dst = array_empty(on_true->shape, on_true->ndim);
+
+    NDIterator itrue = iter_array(on_true, ITERALL);
+    NDIterator ifalse = iter_array(on_false, ITERALL);
+    NDIterator icond = iter_array(cond, ITERALL);
+    NDIterator idst = iter_array(dst, ITERALL);
+
+    while (iter_next(&itrue) && iter_next(&ifalse) && iter_next(&icond) && iter_next(&idst))
+        *idst.ptr = *icond.ptr ? *itrue.ptr : *ifalse.ptr;
+
+    FREE(&itrue);
+    FREE(&ifalse);
+    FREE(&icond);
+    FREE(&idst);
+    return dst;
 }

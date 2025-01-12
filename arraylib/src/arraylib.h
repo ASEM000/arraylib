@@ -700,6 +700,13 @@ NDArray* array_scalar_div(NDArray* lhs, f32 rhs);
  */
 NDArray* array_scalar_pow(NDArray* lhs, f32 rhs);
 
+NDArray* array_scalar_eq(NDArray* lhs, f32 rhs);
+NDArray* array_scalar_neq(NDArray* lhs, f32 rhs);
+NDArray* array_scalar_lt(NDArray* lhs, f32 rhs);
+NDArray* array_scalar_leq(NDArray* lhs, f32 rhs);
+NDArray* array_scalar_gt(NDArray* lhs, f32 rhs);
+NDArray* array_scalar_geq(NDArray* lhs, f32 rhs);
+
 // -------------------------------------------------------------------------------------------------
 // MATMUL
 // -------------------------------------------------------------------------------------------------
@@ -985,6 +992,19 @@ NDArray* array_reduce_min(NDArray* array, size_t* reduce_dims, size_t ndim);
  * @endcode
  */
 NDArray* array_reduce_sum(NDArray* array, size_t* reduce_dims, size_t ndim);
+
+// -------------------------------------------------------------------------------------------------
+// CONDITIONAL OPERATIONS
+// -------------------------------------------------------------------------------------------------
+
+/**
+ * @brief Return elements on the left/right NDArray based on condition.
+ * @param cond Pointer to the conditional NDArray.
+ * @param on_true Pointer to the on true NDArray.
+ * @param on_false Pointer to the on false NDArray.
+ * @return Pointer to the resulting NDArray.
+ */
+NDArray* array_where(NDArray* cond, NDArray* on_true, NDArray* on_false);
 
 // END
 

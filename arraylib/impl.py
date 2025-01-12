@@ -111,15 +111,18 @@ def _(lhs, dst: tuple[int, ...]) -> NDArray:
     dst = dst = ffi.new("size_t[]", dst)
     return NDArray(buffer=lib.array_transpose(lhs.buffer, dst))
 
+
 @primitive.ravel_p.register(NDArray)
 def _(array) -> NDArray:
     return NDArray(buffer=lib.array_ravel(array.buffer))
+
 
 @primitive.move_axis_p.register(NDArray)
 def _(array, src: tuple[int, ...], dst: tuple[int, ...]) -> NDArray:
     src = ffi.new("size_t[]", src)
     dst = ffi.new("size_t[]", dst)
     return NDArray(buffer=lib.array_move_axis(array.buffer, src, dst, len(src)))
+
 
 # comparison operations
 
@@ -129,9 +132,19 @@ def _(lhs, rhs) -> NDArray:
     return NDArray(buffer=lib.array_array_eq(lhs.buffer, rhs.buffer))
 
 
+@primitive.eq_p.register(NDArray, float)
+def _(lhs, rhs) -> NDArray:
+    return NDArray(buffer=lib.array_scalar_eq(lhs.buffer, rhs))
+
+
 @primitive.neq_p.register(NDArray, NDArray)
 def _(lhs, rhs) -> NDArray:
     return NDArray(buffer=lib.array_array_neq(lhs.buffer, rhs.buffer))
+
+
+@primitive.neq_p.register(NDArray, float)
+def _(lhs, rhs) -> NDArray:
+    return NDArray(buffer=lib.array_scalar_neq(lhs.buffer, rhs))
 
 
 @primitive.leq_p.register(NDArray, NDArray)
@@ -139,9 +152,19 @@ def _(lhs, rhs) -> NDArray:
     return NDArray(buffer=lib.array_array_leq(lhs.buffer, rhs.buffer))
 
 
+@primitive.leq_p.register(NDArray, float)
+def _(lhs, rhs) -> NDArray:
+    return NDArray(buffer=lib.array_scalar_leq(lhs.buffer, rhs))
+
+
 @primitive.lt_p.register(NDArray, NDArray)
 def _(lhs, rhs) -> NDArray:
     return NDArray(buffer=lib.array_array_lt(lhs.buffer, rhs.buffer))
+
+
+@primitive.lt_p.register(NDArray, float)
+def _(lhs, rhs) -> NDArray:
+    return NDArray(buffer=lib.array_scalar_lt(lhs.buffer, rhs))
 
 
 @primitive.geq_p.register(NDArray, NDArray)
@@ -149,9 +172,19 @@ def _(lhs, rhs) -> NDArray:
     return NDArray(buffer=lib.array_array_geq(lhs.buffer, rhs.buffer))
 
 
+@primitive.geq_p.register(NDArray, float)
+def _(lhs, rhs) -> NDArray:
+    return NDArray(buffer=lib.array_scalar_geq(lhs.buffer, rhs))
+
+
 @primitive.gt_p.register(NDArray, NDArray)
 def _(lhs, rhs) -> NDArray:
     return NDArray(buffer=lib.array_array_gt(lhs.buffer, rhs.buffer))
+
+
+@primitive.gt_p.register(NDArray, float)
+def _(lhs, rhs) -> NDArray:
+    return NDArray(buffer=lib.array_scalar_gt(lhs.buffer, rhs))
 
 
 # getter and setter
@@ -256,6 +289,7 @@ def _(array):
 # reductions
 
 
+
 @primitive.reduce_sum_p.register(NDArray)
 def _(array, dims) -> float:
     ndim = len(dims)
@@ -275,3 +309,14 @@ def _(array, dims) -> float:
     ndim = len(dims)
     dims = ffi.new("size_t[]", dims)
     return NDArray(buffer=lib.array_reduce_min(array.buffer, dims, ndim))
+
+
+# conditional
+
+
+@primitive.where_p.register(NDArray)
+def _(cond, lhs, rhs):
+    cond = cond.buffer
+    lhs = lhs.buffer
+    rhs = rhs.buffer
+    return NDArray(buffer=lib.array_where(cond, lhs, rhs))
