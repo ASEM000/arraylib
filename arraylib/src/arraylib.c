@@ -728,11 +728,11 @@ NDArray* array_reduce(
         imid = iter_array(src, non_reduce_spec);
         while (iter_next(&imid))
             sum = acc_fn(sum, *imid.ptr);
+        FREE(&imid);
         array_set_scalar_from_index(dst, isrc.index, sum);
     }
     FREE(&isrc);
     FREE(&idst);
-    FREE(&imid);
     return dst;
 }
 
