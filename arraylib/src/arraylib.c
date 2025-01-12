@@ -324,18 +324,22 @@ NDArray* array_get_view_from_range(NDArray* array, size_t* start, size_t* end, s
     size_t ndim = array->ndim;
     size_t* shape = size_t_copy(size_t_create(ndim), array->shape, ndim);
     size_t* stride = size_t_copy(size_t_create(ndim), array->stride, ndim);
+    size_t* bstride = size_t_copy(size_t_create(ndim), array->bstride, ndim);
     size_t offset = 0;
     for (size_t i = 0; i < array->ndim; i++) {
         shape[i] = cdiv(end[i] - start[i], step[i]);
         stride[i] = array->stride[i] * step[i];
+        bstride[i] = (shape[i] - 1) * stride[i];
         offset += start[i] * array->stride[i];
     }
     assert(offset < array->data->size && "ValueError: offset >= size.");
     NDArray* out_array = array_shallow_copy(array);
     FREE(out_array->shape);
     FREE(out_array->stride);
+    FREE(out_array->bstride);
     out_array->shape = shape;
     out_array->stride = stride;
+    out_array->bstride = bstride;
     out_array->offset = offset;
     return out_array;
 }
@@ -498,10 +502,10 @@ NDArray* array_ravel(NDArray* array) {
     NDArray* out_array = is_contiguous(array) ? array_shallow_copy(array) : array_deep_copy(array);
     FREE(out_array->shape);
     FREE(out_array->stride);
-    out_array->shape = size_t_create(1);
-    out_array->shape[0] = total;
-    out_array->stride = size_t_create(1);
-    out_array->stride[0] = 1;
+    FREE(out_array->bstride);
+    out_array->shape = size_t_set(size_t_create(1), total, 1);
+    out_array->stride = size_t_set(size_t_create(1), 1, 1);
+    out_array->bstride = size_t_set(size_t_create(1), total - 1, 1);
     out_array->ndim = 1;
     return out_array;
 }
