@@ -301,3 +301,23 @@ def test_where():
     b_al = al.where(cond, a_al - 10., a_al + 10.)
     b_np = np.where(a_np <10., a_np  -10. , a_np + 10.)
     assert_array_equal(b_al, b_np)
+
+
+
+@pytest.mark.parametrize(
+    "lhs_shape, rhs_shape",
+    [
+        [(1, 2, 3), (1, 1, 2, 3)],
+        [(1, 2, 3), (1, 2, 3)],
+        [(1, 2, 3), (2, 3)],
+        [(1, 2, 3), (3,)],
+        [(1, 2, 3), (1, 3)],
+        [(1, 2, 3), (1, 3)],
+        [(1, 2, 3), (2, 1)],
+        [(1, 2, 3), (1, 1)],
+    ]
+)
+def test_broadcast(lhs_shape, rhs_shape):
+    a_al = al.ones(lhs_shape) + al.ones(rhs_shape)
+    a_np = np.ones(lhs_shape) + np.ones(rhs_shape)
+    assert_array_equal(a_al, a_np)

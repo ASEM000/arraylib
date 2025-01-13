@@ -17,31 +17,24 @@ class NDArray:
 
     @property
     def shape(self) -> tuple[int, ...]:
-        return tuple(self.buffer.shape[i] for i in range(self.ndim))
+        return tuple(self.buffer.lay.shape[i] for i in range(self.ndim))
 
     @property
     def stride(self) -> tuple[int, ...]:
-        return tuple(self.buffer.stride[i] for i in range(self.ndim))
+        return tuple(self.buffer.lay.stride[i] for i in range(self.ndim))
 
     @property
-    def bstride(self) -> tuple[int, ...]:
-        return tuple(self.buffer.bstride[i] for i in range(self.ndim))
-    
-    @property
     def size(self) -> int:
-        return self.buffer.size
+        return self.buffer.data.size
 
     @property
     def view(self) -> bool:
         return self.buffer.view
 
-    @property
-    def offset(self) -> int:
-        return self.buffer.offset
 
     @property
     def ndim(self) -> int:
-        return self.buffer.ndim
+        return self.buffer.lay.ndim
 
     __del__ = arraylib.core.free
     __getitem__ = arraylib.core.getitem

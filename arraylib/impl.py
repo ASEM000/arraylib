@@ -229,24 +229,24 @@ def _(
 
 
 @primitive.set_scalar_from_index_p.register(NDArray)
-def _(array, index: tuple[int, ...], value: int) -> NDArray:
+def _(array, value: float, index: tuple[int, ...]) -> NDArray:
     index = ffi.new("size_t[]", index)
-    lib.array_set_scalar_from_index(array.buffer, index, value)
+    lib.array_set_scalar_from_index(array.buffer, value, index)
     return array
 
 
 @primitive.set_view_from_array_p.register(NDArray)
 def _(
     array,
+    value: NDArray,
     start: tuple[int, ...],
     end: tuple[int, ...],
     step: tuple[int, ...],
-    value: NDArray,
 ) -> NDArray:
     start = ffi.new("size_t[]", start)
     end = ffi.new("size_t[]", end)
     step = ffi.new("size_t[]", step)
-    lib.array_set_view_from_array(array.buffer, start, end, step, value.buffer)
+    lib.array_set_view_from_array(array.buffer, value.buffer, start, end, step)
     return array
 
 
@@ -287,7 +287,6 @@ def _(array):
 
 
 # reductions
-
 
 
 @primitive.reduce_sum_p.register(NDArray)
