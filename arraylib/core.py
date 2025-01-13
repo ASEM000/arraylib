@@ -334,13 +334,13 @@ def getitem(array, index: int | slice | tp.Sequence[int | slice]):
 ## -------------------------------------------------------------------------------------------------
 
 
-def set_scalar_from_index(array, index: tp.Sequence[int], value: int):
+def set_scalar_from_index(array, value: float, index: tp.Sequence[int]):
     assert isinstance(index, tp.Sequence)
     assert all(isinstance(i, int) for i in index)
     assert len(index) == array.ndim
     assert all(idx < array.shape[i] for i, idx in enumerate(index))
     index = tuple(index)
-    return primitive.set_scalar_from_index_p(array, index, value)
+    return primitive.set_scalar_from_index_p(array, value, index)
 
 
 def set_scalar_from_range(
@@ -376,21 +376,21 @@ def set_view_from_array(
     assert all(isinstance(i, int) for i in end)
     assert all(isinstance(i, int) for i in step)
     assert len(start) == len(end) == len(step) == value.ndim
-    return primitive.set_view_from_array_p(array, start, end, step, value)
+    return primitive.set_view_from_array_p(array, value, start, end, step)
 
 
 def setitem(array, index: int | slice | tp.Sequence[int | slice], value: float):
     index: tuple[tp.Any] = normalize_index(index)
     assert len(index) == array.ndim, "full index required to match ndim"
     if all(isinstance(i, int) for i in index):
-        return set_scalar_from_index(array, index, value)
+        return set_scalar_from_index(array, value, index)
     if all(isinstance(i, slice) for i in index):
         start, end, step = slice_to_range(array.shape, array.ndim, index)
         if isinstance(value, arraylib.NDArray):
-            return set_view_from_array(array, start, end, step, value)
+            return set_view_from_array(array, value, start, end, step)
         if isinstance(value, float):
             print(start, end, step, value)
-            return primitive.set_scalar_from_range_p(array, start, end, step, value)
+            return primitive.set_scalar_from_range_p(array, value, start, end, step)
     return primitive.setitem_p(array, index, value)
 
 

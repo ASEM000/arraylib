@@ -30,7 +30,7 @@ void test_utils() {
     size_t nums2[] = {1, 2, 3};
     TEST(prod(nums2, 0));
 
-    size_t* arr = size_t_create(5);
+    size_t* arr = size_t_alloc(5);
     TEST(assert(arr != NULL));
     free(arr);
 
@@ -56,26 +56,24 @@ void test_array_creation() {
     size_t shape[] = {2, 3};
     NDArray* array = array_empty(shape, 2);
     TEST(assert(array != NULL));
-    TEST(assert(array->ndim == 2));
-    TEST(assert(array->shape[0] == 2 && array->shape[1] == 3));
-    array_free(array);
-
-    // + 1
-    TEST(array_free(NULL));
+    TEST(assert(array->lay->ndim == 2));
+    TEST(assert(array->lay->shape[0] == 2 && array->lay->shape[1] == 3));
+    FREE(array);
 }
 
 void test_iterator() {
     size_t shape[] = {2, 3};
     NDArray* array = array_empty(shape, 2);
-    NDIterator iter = iter_array(array, (DimSpecs){.nspec=0});
-    TEST(assert(iter.ptr != NULL));
-    TEST(assert(iter.size == 6));
+    NDIter* iter = iter_create(array->ptr, array->lay, (DimSpecs){.nspec = 0});
+    TEST(assert(iter->ptr != NULL));
+    TEST(assert(iter->size == 6));
 
     size_t count = 0;
-    while (iter_next(&iter))
+    while (iter_next(iter))
         count++;
     TEST(assert(count == 6));
-    array_free(array);
+    FREE(array);
+    FREE(iter);
 }
 
 void test_array_initialization() {
@@ -83,28 +81,28 @@ void test_array_initialization() {
     NDArray* zeros = array_zeros(shape, 2);
     TEST(assert(zeros != NULL));
     TEST(assert(zeros->data->mem[0] == 0 && zeros->data->mem[3] == 0));
-    array_free(zeros);
+    FREE(zeros);
 
     f32 elems[] = {1, 2, 3, 4};
     NDArray* filled = array_fill(elems, shape, 2);
     TEST(assert(filled != NULL));
     TEST(assert(filled->data->mem[0] == 1 && filled->data->mem[3] == 4));
-    array_free(filled);
+    FREE(filled);
 
     NDArray* ones = array_ones(shape, 2);
     TEST(assert(ones != NULL));
     TEST(assert(ones->data->mem[0] == 1 && ones->data->mem[3] == 1));
-    array_free(ones);
+    FREE(ones);
 
     NDArray* arange = array_arange(0, 5, 1);
     TEST(assert(arange != NULL));
     TEST(assert(arange->data->mem[0] == 0 && arange->data->mem[4] == 4));
-    array_free(arange);
+    FREE(arange);
 
     NDArray* linspace = array_linspace(0, 1, 5);
     TEST(assert(linspace != NULL));
     TEST(assert(linspace->data->mem[0] == 0 && linspace->data->mem[4] == 1));
-    array_free(linspace);
+    FREE(linspace);
 }
 
 void test_array_operations() {
@@ -113,17 +111,17 @@ void test_array_operations() {
     NDArray* result = array_scalar_add(array, 1);
     TEST(assert(result != NULL));
     TEST(assert(result->data->mem[0] == 2 && result->data->mem[3] == 2));
-    array_free(array);
-    array_free(result);
+    FREE(array);
+    FREE(result);
 
     NDArray* array1 = array_ones(shape, 2);
     NDArray* array2 = array_ones(shape, 2);
     NDArray* sum = array_array_sum(array1, array2);
     TEST(assert(sum != NULL));
     TEST(assert(sum->data->mem[0] == 2 && sum->data->mem[3] == 2));
-    array_free(array1);
-    array_free(array2);
-    array_free(sum);
+    FREE(array1);
+    FREE(array2);
+    FREE(sum);
 }
 
 void test_reduction_operations() {
@@ -133,9 +131,9 @@ void test_reduction_operations() {
     NDArray* dot = array_array_dot(array1, array2);
     TEST(assert(dot != NULL));
     TEST(assert(dot->data->mem[0] == 32));
-    array_free(array1);
-    array_free(array2);
-    array_free(dot);
+    FREE(array1);
+    FREE(array2);
+    FREE(dot);
 }
 
 void test_view_from_range() {
@@ -151,15 +149,15 @@ void test_view_from_range() {
     size_t step[] = {1, 1};
     NDArray* view = array_get_view_from_range(array, start, end, step);
 
-    TEST(assert(view->shape[0] == 2 && view->shape[1] == 2));
-    TEST(assert(view->data->mem[view->offset + 0] == 4.0f));  // [1, 1]
-    TEST(assert(view->data->mem[view->offset + 1] == 5.0f));  // [1, 2]
-    TEST(assert(view->data->mem[view->offset + 3] == 7.0f));  // [2, 1]
-    TEST(assert(view->data->mem[view->offset + 4] == 8.0f));  // [2, 2]
+    TEST(assert(view->lay->shape[0] == 2 && view->lay->shape[1] == 2));
+    TEST(assert(view->ptr[0] == 4.0f));  // [1, 1]
+    TEST(assert(view->ptr[1] == 5.0f));  // [1, 2]
+    TEST(assert(view->ptr[3] == 7.0f));  // [2, 1]
+    TEST(assert(view->ptr[4] == 8.0f));  // [2, 2]
 
     // Free the view and original array
-    array_free(view);
-    array_free(array);
+    FREE(view);
+    FREE(array);
 }
 
 void test_modify_view() {
@@ -173,12 +171,12 @@ void test_modify_view() {
     size_t step[] = {1, 1};
     NDArray* view = array_get_view_from_range(array, start, end, step);
 
-    array_set_scalar_from_index(view, (size_t[]){0, 1}, 42.0f);
+    array_set_scalar_from_index(view, 42.0f, (size_t[]){0, 1});
 
     TEST(assert(array->data->mem[1] == 42.0f));
 
-    array_free(view);
-    array_free(array);
+    FREE(view);
+    FREE(array);
 }
 
 void test_non_contiguous_view() {
@@ -194,12 +192,12 @@ void test_non_contiguous_view() {
     size_t step[] = {2};
     NDArray* view = array_get_view_from_range(array, start, end, step);
 
-    TEST(assert(view->shape[0] == 2));
-    TEST(assert(view->data->mem[view->offset + 0] == 0.0f));  // [0]
-    TEST(assert(view->data->mem[view->offset + 2] == 2.0f));  // [2]
+    TEST(assert(view->lay->shape[0] == 2));
+    TEST(assert(view->ptr[0] == 0.0f));  // [0]
+    TEST(assert(view->ptr[2] == 2.0f));  // [2]
 
-    array_free(view);
-    array_free(array);
+    FREE(view);
+    FREE(array);
 }
 
 void test_basic_matmul() {
@@ -219,15 +217,15 @@ void test_basic_matmul() {
     NDArray* result = array_array_matmul(lhs, rhs);
 
     TEST(assert(result != NULL));
-    TEST(assert(result->shape[0] == 2 && result->shape[1] == 2));
+    TEST(assert(result->lay->shape[0] == 2 && result->lay->shape[1] == 2));
     TEST(assert(result->data->mem[0] == 19.0f));  // [1*5 + 2*7]
     TEST(assert(result->data->mem[1] == 22.0f));  // [1*6 + 2*8]
     TEST(assert(result->data->mem[2] == 43.0f));  // [3*5 + 4*7]
     TEST(assert(result->data->mem[3] == 50.0f));  // [3*6 + 4*8]
 
-    array_free(lhs);
-    array_free(rhs);
-    array_free(result);
+    FREE(lhs);
+    FREE(rhs);
+    FREE(result);
 }
 
 void test_dimension_mismatch() {
@@ -239,8 +237,8 @@ void test_dimension_mismatch() {
     //  + 1
     TEST(array_array_matmul(lhs, rhs));
 
-    array_free(lhs);
-    array_free(rhs);
+    FREE(lhs);
+    FREE(rhs);
 }
 
 void test_matmul_identity() {
@@ -260,16 +258,16 @@ void test_matmul_identity() {
     NDArray* result = array_array_matmul(matrix, identity);
 
     TEST(assert(result != NULL));
-    TEST(assert(result->shape[0] == 2 && result->shape[1] == 2));
+    TEST(assert(result->lay->shape[0] == 2 && result->lay->shape[1] == 2));
     TEST(assert(result->data->mem[0] == 1.0f));
     TEST(assert(result->data->mem[1] == 2.0f));
     TEST(assert(result->data->mem[2] == 3.0f));
     TEST(assert(result->data->mem[3] == 4.0f));
 
     // Free the matrices
-    array_free(matrix);
-    array_free(identity);
-    array_free(result);
+    FREE(matrix);
+    FREE(identity);
+    FREE(result);
 }
 
 void test_blocked_matmul() {
@@ -288,7 +286,7 @@ void test_blocked_matmul() {
     NDArray* result = array_array_matmul(lhs, rhs);
 
     TEST(assert(result != NULL));
-    TEST(assert(result->shape[0] == 4 && result->shape[1] == 4));
+    TEST(assert(result->lay->shape[0] == 4 && result->lay->shape[1] == 4));
 
     f32 expected[] = {
             56.0f,
@@ -312,9 +310,9 @@ void test_blocked_matmul() {
         TEST(assert(result->data->mem[i] == expected[i]));
     }
 
-    array_free(lhs);
-    array_free(rhs);
-    array_free(result);
+    FREE(lhs);
+    FREE(rhs);
+    FREE(result);
 }
 
 void test_array_reduce_max() {
@@ -324,8 +322,8 @@ void test_array_reduce_max() {
     array = array_fill((f32[]){-1, -5, -3, -2}, (size_t[]){4}, 1);
     result = array_reduce_max(array, (size_t[]){0}, 1);
     TEST(assert(result->data->mem[0] == -1 && "Test case 2 failed"));
-    array_free(array);
-    array_free(result);
+    FREE(array);
+    FREE(result);
 }
 
 void test_array_reduce_sum() {
@@ -334,15 +332,15 @@ void test_array_reduce_sum() {
     array = array_reduce_sum(array, (size_t[]){0}, 1);
 
     TEST(assert(array->data->mem[0] == 55.));
-    TEST(assert(array->ndim == 2));
-    TEST(assert(array->shape[0] == 1));
-    TEST(assert(array->shape[1] == 5));
+    TEST(assert(array->lay->ndim == 2));
+    TEST(assert(array->lay->shape[0] == 1));
+    TEST(assert(array->lay->shape[1] == 5));
 
     array = array_arange(1, 3 * 4 * 5 * 6 + 1, 1);
     array = array_reshape(array, (size_t[]){3, 4, 5, 6}, 4);
     array = array_reduce_sum(array, (size_t[]){2}, 1);
     TEST(assert(array->data->mem[3] == 80.));
-    array_free(array);
+    FREE(array);
 }
 
 void test_array_reshape() {
@@ -351,7 +349,7 @@ void test_array_reshape() {
     size_t src[2] = {1, 3};
     size_t dst[2] = {0, 2};
     array_move_axis(array, src, dst, 2);
-    array_free(array);
+    FREE(array);
 }
 
 void test_move_axis() {
@@ -360,7 +358,7 @@ void test_move_axis() {
     for (size_t i = 0; i < 2; i++) {
         for (size_t j = 0; j < 3; j++) {
             size_t index[] = {i, j};
-            array_set_scalar_from_index(array, index, i * 3 + j);
+            array_set_scalar_from_index(array, i * 3 + j, index);
         }
     }
 
@@ -368,7 +366,7 @@ void test_move_axis() {
     size_t dst[] = {1, 0};
     NDArray* moved_array = array_move_axis(array, src, dst, 2);
 
-    assert(moved_array->shape[0] == 3 && moved_array->shape[1] == 2);
+    assert(moved_array->lay->shape[0] == 3 && moved_array->lay->shape[1] == 2);
     for (size_t i = 0; i < 3; i++) {
         for (size_t j = 0; j < 2; j++) {
             size_t index[] = {i, j};
@@ -376,8 +374,8 @@ void test_move_axis() {
             assert(value == j * 3 + i);
         }
     }
-    array_free(array);
-    array_free(moved_array);
+    FREE(array);
+    FREE(moved_array);
 }
 
 void test_transpose() {
@@ -405,6 +403,7 @@ int main() {
     test_array_reshape();
     test_move_axis();
     test_transpose();
+    test_dimension_mismatch();
     assert(assertion_failures == 2);
 
     printf("tests passed %d.", assertion_failures);
