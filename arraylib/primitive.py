@@ -1,5 +1,5 @@
 from arraylib.dispatch import bidispatch, unidispatch
-
+import functools as ft
 
 def _no_impl_error(*a, **k):
     raise NotImplementedError("This function is not implemented yet.")
@@ -57,4 +57,4 @@ reduce_p = unidispatch(_no_impl_error)
 
 # conditional
 
-where_p = unidispatch(_no_impl_error)
+where_p = ft.partial(bidispatch, lhsnum=1, rhsnum=2)(_no_impl_error)

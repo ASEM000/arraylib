@@ -459,7 +459,4 @@ def reduce(fn, array, axis=None, init=0.0):
 
 
 def where(cond, on_true, on_false):
-    assert isinstance(cond, arraylib.NDArray)
-    assert isinstance(on_true, arraylib.NDArray)
-    assert isinstance(on_false, arraylib.NDArray)
     return primitive.where_p(cond, on_true, on_false)
