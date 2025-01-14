@@ -52,6 +52,9 @@ def _(lhs, rhs) -> NDArray:
 def _(lhs, rhs) -> NDArray:
     return core.mul(rhs, lhs)
 
+@primitive.div_p.register(NDArray, float)
+def _(lhs, rhs) -> NDArray:
+    return NDArray(buffer=lib.array_scalar_div(lhs.buffer, rhs))
 
 @primitive.div_p.register(NDArray, NDArray)
 def _(lhs, rhs) -> NDArray:

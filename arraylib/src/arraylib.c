@@ -752,7 +752,7 @@ NDArray* array_reduce_sum(NDArray* array, size_t* reduce_dims, size_t ndim) {
 }
 
 // -------------------------------------------------------------------------------------------------
-// ARRAY-ARRAY-ARRAY OPERATIONS
+// CONDITIONAL OPERATIONS
 // -------------------------------------------------------------------------------------------------
 
 NDArray* array_where(NDArray* cond, NDArray* lhs, NDArray* rhs) {
