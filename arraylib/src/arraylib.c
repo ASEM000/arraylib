@@ -755,13 +755,13 @@ NDArray* array_reduce_sum(NDArray* array, size_t* reduce_dims, size_t ndim) {
 // CONDITIONAL OPERATIONS
 // -------------------------------------------------------------------------------------------------
 
-NDArray* array_where(NDArray* cond, NDArray* lhs, NDArray* rhs) {
+NDArray* array_array_array_where(NDArray* cond, NDArray* lhs, NDArray* rhs) {
     assert(cond->lay->ndim == lhs->lay->ndim && lhs->lay->ndim && rhs->lay->ndim);
     for (size_t i = 0; i < lhs->lay->ndim; i++)
         assert(cond->lay->shape[i] == lhs->lay->shape[i]
                && lhs->lay->shape[i] == rhs->lay->shape[i]);
 
-    NDArray* dst = array_empty(lhs->lay->shape, lhs->lay->ndim);
+    NDArray* dst = array_empty(cond->lay->shape, cond->lay->ndim);
     NDIter* ilhs = iter_create(lhs->ptr, lhs->lay, ITERALL);
     NDIter* irhs = iter_create(rhs->ptr, rhs->lay, ITERALL);
     NDIter* icond = iter_create(cond->ptr, cond->lay, ITERALL);
@@ -772,6 +772,57 @@ NDArray* array_where(NDArray* cond, NDArray* lhs, NDArray* rhs) {
 
     FREE(ilhs);
     FREE(irhs);
+    FREE(icond);
+    FREE(idst);
+    return dst;
+}
+
+NDArray* array_array_scalar_where(NDArray* cond, NDArray* lhs, f32 rhs) {
+    assert(cond->lay->ndim == lhs->lay->ndim && lhs->lay->ndim);
+    for (size_t i = 0; i < lhs->lay->ndim; i++)
+        assert(cond->lay->shape[i] == lhs->lay->shape[i]);
+
+    NDArray* dst = array_empty(lhs->lay->shape, lhs->lay->ndim);
+    NDIter* ilhs = iter_create(lhs->ptr, lhs->lay, ITERALL);
+    NDIter* icond = iter_create(cond->ptr, cond->lay, ITERALL);
+    NDIter* idst = iter_create(dst->ptr, dst->lay, ITERALL);
+
+    while (iter_next(ilhs) && iter_next(icond) && iter_next(idst))
+        *idst->ptr = *icond->ptr ? *ilhs->ptr : rhs;
+
+    FREE(ilhs);
+    FREE(icond);
+    FREE(idst);
+    return dst;
+}
+
+NDArray* array_scalar_array_where(NDArray* cond, f32 lhs, NDArray* rhs) {
+    assert(cond->lay->ndim && rhs->lay->ndim);
+    for (size_t i = 0; i < rhs->lay->ndim; i++)
+        assert(cond->lay->shape[i] == rhs->lay->shape[i]);
+
+    NDArray* dst = array_empty(rhs->lay->shape, rhs->lay->ndim);
+    NDIter* irhs = iter_create(rhs->ptr, rhs->lay, ITERALL);
+    NDIter* icond = iter_create(cond->ptr, cond->lay, ITERALL);
+    NDIter* idst = iter_create(dst->ptr, dst->lay, ITERALL);
+
+    while (iter_next(irhs) && iter_next(icond) && iter_next(idst))
+        *idst->ptr = *icond->ptr ? lhs : *irhs->ptr;
+
+    FREE(irhs);
+    FREE(icond);
+    FREE(idst);
+    return dst;
+}
+
+NDArray* array_scalar_scalar_where(NDArray* cond, f32 lhs, f32 rhs) {
+    NDArray* dst = array_empty(cond->lay->shape, cond->lay->ndim);
+    NDIter* icond = iter_create(cond->ptr, cond->lay, ITERALL);
+    NDIter* idst = iter_create(dst->ptr, dst->lay, ITERALL);
+
+    while (iter_next(icond) && iter_next(idst))
+        *idst->ptr = *icond->ptr ? lhs : rhs;
+
     FREE(icond);
     FREE(idst);
     return dst;

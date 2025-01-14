@@ -982,7 +982,11 @@ NDArray* array_reduce_sum(NDArray* array, size_t* reduce_dims, size_t ndim);
  * @param rhs Pointer to the on false NDArray.
  * @return Pointer to the resulting NDArray.
  */
-NDArray* array_where(NDArray* cond, NDArray* lhs, NDArray* rhs);
+NDArray* array_array_array_where(NDArray* cond, NDArray* lhs, NDArray* rhs);
+
+NDArray* array_array_scalar_where(NDArray* cond, NDArray* lhs, f32 rhs);
+NDArray* array_scalar_array_where(NDArray* cond, f32 lhs, NDArray* rhs);
+NDArray* array_scalar_scalar_where(NDArray* cond, f32 lhs, f32 rhs);
 
 // END
 
