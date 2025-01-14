@@ -15,8 +15,6 @@ from arraylib.core import (
     lt,
     geq,
     gt,
-    to_buffer,
-    from_buffer,
     to_numpy,
     exp,
     log,
@@ -28,6 +26,7 @@ from arraylib.core import (
     reduce,
     apply,
     where,
+    from_numpy,
 )
 from arraylib.arraytypes import NDArray, JVPNDArray
 import arraylib.impl as impl
@@ -52,8 +51,7 @@ __all__ = [
     "lt",
     "geq",
     "gt",
-    "to_buffer",
-    "from_buffer",
+    "from_numpy",
     "to_numpy",
     "exp",
     "log",

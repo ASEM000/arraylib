@@ -118,25 +118,24 @@ def free(array):
 ## -------------------------------------------------------------------------------------------------
 
 
-def to_buffer(array: arraylib.NDArray):
-    array = array.buffer
-    return ffi.buffer(array.data.mem, array.data.size * 4)
+def from_numpy(array):
+    import numpy as np
 
-
-def from_buffer(buffer):
-    size = len(buffer) // 4  # float size
-    data = ffi.new("float[]", size)
-    for i in range(size):
-        data[i] = buffer[i]
-    size = ffi.new("size_t[]", (size,))
-    return arraylib.NDArray(buffer=lib.array_fill(data, size, 1))
+    assert isinstance(array, np.ndarray), f"expected numpy array, got {type(array)=}"
+    assert array.dtype == np.float32, f"expected float32 dtype, got {array.dtype=}"
+    buffer = ffi.new("float[]", array.size)
+    ffi.memmove(buffer, np.frombuffer(array), array.size * 4)
+    size = ffi.new("size_t[]", (array.size,))
+    al_array = arraylib.NDArray(buffer=lib.array_fill(buffer, size, 1))
+    al_array = reshape(al_array, array.shape)
+    return al_array
 
 
 def to_numpy(array: arraylib.NDArray):
     import numpy as np
 
     return np.ndarray(
-        buffer=to_buffer(array),
+        buffer=ffi.buffer(array.buffer.data.mem, array.size * 4),
         shape=array.shape,
         dtype=np.float32,
         strides=[s * 4 for s in array.stride],

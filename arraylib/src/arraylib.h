@@ -284,7 +284,7 @@ LayoutPair* layout_broadcast(const LayoutPair* lay);
 // -------------------------------------------------------------------------------------------------
 
 /**
- * @brief Creates an empty NDArray with the given shape and dimensions.
+ * @brief Creates an empty contigouous NDArray with the given shape and dimensions.
  * @param shape Array of dimensions.
  * @param ndim Number of dimensions.
  * @return Pointer to the created NDArray.
