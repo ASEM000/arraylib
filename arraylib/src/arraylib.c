@@ -187,65 +187,44 @@ void array_free(NDArray* array) {
 // ITERATOR
 // -------------------------------------------------------------------------------------------------
 
-NDIter* iter_create(f32* ptr, const Layout* lay, const DimSpecs specs) {
-    for (size_t i = 0; i < specs.nspec; i++)
-        assert(specs.specs[i].value == ITERDIM
-               || specs.specs[i].value < lay->shape[specs.specs[i].dim]
-                          && "ValueError: out of bounds.");
-
+NDIter* iter_create(f32* ptr, const Layout* lay) {
     NDIter* iter = (NDIter*)alloc(sizeof(NDIter));
-    size_t offset = 0;
     iter->lay = layout_copy(lay);
-    iter->index = size_t_set(size_t_alloc(lay->ndim), 0, lay->ndim);       // own index
-    iter->dims = size_t_set(size_t_alloc(lay->ndim), ITERDIM, lay->ndim);  // own iterdims
-
-    for (size_t i = 0; i < specs.nspec; i++) {
-        size_t dim = specs.specs[i].dim;
-        size_t value = specs.specs[i].value;
-        iter->dims[dim] = value;
-        iter->index[dim] = value;
-        offset += value * iter->lay->stride[dim];
-    }
-    iter->size = 1;
-    for (size_t i = 0; i < lay->ndim; i++)
-        if (iter->dims[i] == ITERDIM)
-            iter->size *= iter->lay->shape[i];
-    iter->ptr = ptr + offset;
-    iter->counter = 0;
+    iter->index = size_t_set(size_t_alloc(lay->ndim), 0, lay->ndim);
+    iter->ptr = ptr;
+    iter->status = ITER_START;
     return iter;
 }
 
 void iter_free(NDIter* iter) {
     layout_free(iter->lay);
     free(iter->index);
-    free(iter->dims);
     free(iter);
 }
 
 bool iter_next(NDIter* iter) {
-    if (iter->counter >= iter->size)
+    if (iter->status == ITER_END)
         return false;
 
-    if (iter->counter == 0) {
-        iter->counter++;
+    if (iter->status == ITER_START) {
+        iter->status = ITER_RUN;
         return true;
     }
 
     for (ssize_t i = iter->lay->ndim - 1; i >= 0; i--) {
-        if (iter->dims[i] != ITERDIM)
-            continue;
-
         iter->index[i]++;
         if (iter->index[i] < iter->lay->shape[i]) {
+            // NOTE: to skip a dimension set the shape and stride to 0
+            // NOTE: to broadcast a dimension set the shape to the broadcasted value
+            // and the stride to 0
             iter->ptr += iter->lay->stride[i];
-            iter->counter++;
             return true;
         }
         iter->index[i] = 0;  // move to next
         iter->ptr -= (iter->lay->shape[i] - 1) * iter->lay->stride[i];
     }
-    iter->counter++;
-    return true;
+    iter->status = ITER_END;
+    return false;
 }
 
 // -------------------------------------------------------------------------------------------------
@@ -265,8 +244,8 @@ NDArray* array_shallow_copy(NDArray* src) {
 
 NDArray* array_deep_copy(NDArray* src) {
     NDArray* dst = array_empty(src->lay->shape, src->lay->ndim);
-    NDIter* idst = iter_create(dst->ptr, dst->lay, ITERALL);
-    NDIter* isrc = iter_create(src->ptr, src->lay, ITERALL);
+    NDIter* idst = iter_create(dst->ptr, dst->lay);
+    NDIter* isrc = iter_create(src->ptr, src->lay);
     while (iter_next(idst) && iter_next(isrc))
         *idst->ptr = *isrc->ptr;
     FREE(idst);
@@ -349,8 +328,7 @@ NDArray* array_get_view_from_range(
     }
     assert(offset < src->data->size && "ValueError: offset >= size.");
     NDArray* dst = array_shallow_copy(src);
-    FREE(dst->lay->shape);
-    FREE(dst->lay->stride);
+    FREE(dst->lay);
     dst->lay = view_layout;
     dst->ptr = src->ptr + offset;
     return dst;
@@ -386,7 +364,7 @@ NDArray* array_set_scalar_from_range(
     }
 
     f32* ptr = array->ptr + compute_flat_index(start, array->lay->stride, array->lay->ndim);
-    NDIter* iter = iter_create(ptr, view_layout, ITERALL);
+    NDIter* iter = iter_create(ptr, view_layout);
     while (iter_next(iter))
         *iter->ptr = value;
     FREE(iter);
@@ -417,8 +395,8 @@ NDArray* array_set_view_from_array(
     assert((prod(view_layout->shape, ndim) == prod(src->lay->shape, ndim))
            && "ValueError: set value shape mismatch.");
     f32* pdst = dst->ptr + compute_flat_index(start, dst->lay->stride, ndim);
-    NDIter* idst = iter_create(pdst, view_layout, ITERALL);
-    NDIter* isrc = iter_create(src->ptr, src->lay, ITERALL);
+    NDIter* idst = iter_create(pdst, view_layout);
+    NDIter* isrc = iter_create(src->ptr, src->lay);
     while (iter_next(isrc) && iter_next(idst))
         *idst->ptr = *isrc->ptr;
     FREE(isrc);
@@ -434,10 +412,10 @@ NDArray* array_set_view_from_array(
 NDArray* array_reshape(NDArray* src, const size_t* shape, size_t ndim) {
     assert(prod(shape, ndim) == src->data->size);
     NDArray* dst = is_contiguous(src) ? array_shallow_copy(src) : array_deep_copy(src);
-    FREE(dst->lay->shape);
-    FREE(dst->lay->stride);
-    dst->lay->shape = size_t_copy(size_t_alloc(ndim), shape, ndim);
-    dst->lay->stride = compute_stride(size_t_alloc(ndim), shape, ndim);
+    FREE(dst->lay);
+    dst->lay = layout_alloc(ndim);
+    dst->lay->shape = size_t_copy(dst->lay->shape, shape, ndim);
+    dst->lay->stride = compute_stride(dst->lay->stride, shape, ndim);
     dst->lay->ndim = ndim;
     return dst;
 }
@@ -503,8 +481,8 @@ NDArray* array_ravel(NDArray* src) {
 
 NDArray* array_scalar_op(binop fn, NDArray* src, f32 rhs) {
     NDArray* dst = array_empty(src->lay->shape, src->lay->ndim);
-    NDIter* isrc = iter_create(src->ptr, src->lay, ITERALL);
-    NDIter* idst = iter_create(dst->ptr, dst->lay, ITERALL);
+    NDIter* isrc = iter_create(src->ptr, src->lay);
+    NDIter* idst = iter_create(dst->ptr, dst->lay);
     while (iter_next(isrc) && iter_next(idst))
         *idst->ptr = fn(*isrc->ptr, rhs);
     FREE(isrc);
@@ -594,9 +572,9 @@ NDArray* array_array_scalar_op(binop fn, NDArray* lhs, NDArray* rhs) {
         rhs_blay->stride[oi] = (ri >= 0 && rsi == max_shape) ? rhs->lay->stride[ri] : 0;
     }
     NDArray* out = array_empty(lhs_blay->shape, lhs_blay->ndim);
-    NDIter* ilhs = iter_create(lhs->ptr, lhs_blay, ITERALL);
-    NDIter* irhs = iter_create(rhs->ptr, rhs_blay, ITERALL);
-    NDIter* iout = iter_create(out->ptr, out->lay, ITERALL);
+    NDIter* ilhs = iter_create(lhs->ptr, lhs_blay);
+    NDIter* irhs = iter_create(rhs->ptr, rhs_blay);
+    NDIter* iout = iter_create(out->ptr, out->lay);
 
     while (iter_next(ilhs) && iter_next(irhs) && iter_next(iout))
         *iout->ptr = fn(*ilhs->ptr, *irhs->ptr);
@@ -655,8 +633,8 @@ static inline f32 exp32(f32 lhs) { return expf(lhs); }
 
 NDArray* array_op(uniop fn, NDArray* src) {
     NDArray* dst = array_empty(src->lay->shape, src->lay->ndim);
-    NDIter* isrc = iter_create(src->ptr, src->lay, ITERALL);
-    NDIter* idst = iter_create(dst->ptr, dst->lay, ITERALL);
+    NDIter* isrc = iter_create(src->ptr, src->lay);
+    NDIter* idst = iter_create(dst->ptr, dst->lay);
     while (iter_next(isrc) && iter_next(idst))
         *idst->ptr = fn(*isrc->ptr);
     FREE(isrc);
@@ -677,8 +655,8 @@ NDArray* array_array_dot(NDArray* lhs, NDArray* rhs) {
     assert(rhs->lay->ndim == 1 && "ValueError: rhs dimension != 1 for dot.");
     assert(lhs->lay->shape[0] == rhs->lay->shape[0] && "ValueError: dot shape mismatch.");
     f32 acc = 0.0f;
-    NDIter* ilhs = iter_create(lhs->ptr, lhs->lay, ITERALL);
-    NDIter* irhs = iter_create(rhs->ptr, rhs->lay, ITERALL);
+    NDIter* ilhs = iter_create(lhs->ptr, lhs->lay);
+    NDIter* irhs = iter_create(rhs->ptr, rhs->lay);
     while (iter_next(ilhs) && iter_next(irhs))
         acc = sum32(acc, mul32(*ilhs->ptr, *irhs->ptr));
     FREE(ilhs);
@@ -694,45 +672,34 @@ NDArray* array_reduce(
         const size_t* reduce_dims,
         size_t reduce_ndim,
         f32 acc_init) {
+    bool is_reduce_dim[src->lay->ndim];
+    memset(is_reduce_dim, 0, src->lay->ndim);
+    for (size_t i = 0; i < reduce_ndim; i++)
+        is_reduce_dim[reduce_dims[i]] = 1;
+
     size_t dst_shape[src->lay->ndim];
-    size_t_copy(dst_shape, src->lay->shape, src->lay->ndim);
-    size_t non_reduce_ndim = src->lay->ndim - reduce_ndim;
-    DimSpec reduce_spec_array[reduce_ndim];
-    DimSpec non_reduce_spec_array[non_reduce_ndim];
-    DimSpecs reduce_specs = {.nspec = reduce_ndim, .specs = reduce_spec_array};
-    DimSpecs non_reduce_spec = {.nspec = non_reduce_ndim, .specs = non_reduce_spec_array};
+    for (size_t i = 0; i < src->lay->ndim; i++)
+        dst_shape[i] = (is_reduce_dim[i] == true) ? 1 : src->lay->shape[i];
 
-    char used[src->lay->ndim];
-    memset(used, 0, reduce_ndim);
-
-    for (size_t i = 0; i < reduce_ndim; i++) {
-        dst_shape[reduce_dims[i]] = 1;  // keepdims=True
-        reduce_spec_array[i] = (DimSpec){.dim = reduce_dims[i], .value = 0};
-        used[reduce_dims[i]] = 1;  // mark
-    }
-
-    size_t j = 0;
-    for (size_t i = 0; i < src->lay->ndim - reduce_ndim; i++) {
-        while (j < src->lay->ndim && used[j] == 1)
-            j++;
-        non_reduce_spec_array[i] = (DimSpec){.dim = j++, .value = 0};
+    Layout* reduced_lay = layout_copy(src->lay);
+    for (size_t i = 0; i < src->lay->ndim; i++) {
+        reduced_lay->stride[i] = (is_reduce_dim[i] == true) ? src->lay->stride[i] : 0;
+        reduced_lay->shape[i] = (is_reduce_dim[i] == true) ? src->lay->shape[i] : 0;
     }
 
     NDArray* dst = array_zeros(dst_shape, src->lay->ndim);
-    NDIter* isrc = iter_create(src->ptr, src->lay, reduce_specs);
-    NDIter* idst = iter_create(dst->ptr, dst->lay, reduce_specs);
-    NDIter* imid;
-    f32 sum;
-    while (iter_next(isrc) && iter_next(idst)) {
-        sum = acc_init;
-        for (size_t i = 0; i < non_reduce_spec.nspec; i++)
-            non_reduce_spec.specs[i].value = isrc->index[non_reduce_spec.specs[i].dim];
-        imid = iter_create(src->ptr, src->lay, non_reduce_spec);
-        while (iter_next(imid))
-            sum = acc_fn(sum, *imid->ptr);
-        FREE(imid);
+    NDIter* idst = iter_create(dst->ptr, dst->lay);
+    NDIter* isrc = iter_create(src->ptr, reduced_lay);
 
-        array_set_scalar_from_index(dst, sum, isrc->index);
+    while (iter_next(idst)) {
+        f32 sum = acc_init;
+        size_t offset = compute_flat_index(idst->index, src->lay->stride, src->lay->ndim);
+        isrc->ptr = src->ptr + offset;
+        isrc->index = size_t_copy(isrc->index, idst->index, src->lay->ndim);
+        while (iter_next(isrc))
+            sum = acc_fn(sum, *isrc->ptr);
+        isrc->status = ITER_START;
+        array_set_scalar_from_index(dst, sum, idst->index);
     }
     FREE(isrc);
     FREE(idst);
@@ -762,10 +729,10 @@ NDArray* array_array_array_where(NDArray* cond, NDArray* lhs, NDArray* rhs) {
                && lhs->lay->shape[i] == rhs->lay->shape[i]);
 
     NDArray* dst = array_empty(cond->lay->shape, cond->lay->ndim);
-    NDIter* ilhs = iter_create(lhs->ptr, lhs->lay, ITERALL);
-    NDIter* irhs = iter_create(rhs->ptr, rhs->lay, ITERALL);
-    NDIter* icond = iter_create(cond->ptr, cond->lay, ITERALL);
-    NDIter* idst = iter_create(dst->ptr, dst->lay, ITERALL);
+    NDIter* ilhs = iter_create(lhs->ptr, lhs->lay);
+    NDIter* irhs = iter_create(rhs->ptr, rhs->lay);
+    NDIter* icond = iter_create(cond->ptr, cond->lay);
+    NDIter* idst = iter_create(dst->ptr, dst->lay);
 
     while (iter_next(ilhs) && iter_next(irhs) && iter_next(icond) && iter_next(idst))
         *idst->ptr = *icond->ptr ? *ilhs->ptr : *irhs->ptr;
@@ -783,9 +750,9 @@ NDArray* array_array_scalar_where(NDArray* cond, NDArray* lhs, f32 rhs) {
         assert(cond->lay->shape[i] == lhs->lay->shape[i]);
 
     NDArray* dst = array_empty(lhs->lay->shape, lhs->lay->ndim);
-    NDIter* ilhs = iter_create(lhs->ptr, lhs->lay, ITERALL);
-    NDIter* icond = iter_create(cond->ptr, cond->lay, ITERALL);
-    NDIter* idst = iter_create(dst->ptr, dst->lay, ITERALL);
+    NDIter* ilhs = iter_create(lhs->ptr, lhs->lay);
+    NDIter* icond = iter_create(cond->ptr, cond->lay);
+    NDIter* idst = iter_create(dst->ptr, dst->lay);
 
     while (iter_next(ilhs) && iter_next(icond) && iter_next(idst))
         *idst->ptr = *icond->ptr ? *ilhs->ptr : rhs;
@@ -802,9 +769,9 @@ NDArray* array_scalar_array_where(NDArray* cond, f32 lhs, NDArray* rhs) {
         assert(cond->lay->shape[i] == rhs->lay->shape[i]);
 
     NDArray* dst = array_empty(rhs->lay->shape, rhs->lay->ndim);
-    NDIter* irhs = iter_create(rhs->ptr, rhs->lay, ITERALL);
-    NDIter* icond = iter_create(cond->ptr, cond->lay, ITERALL);
-    NDIter* idst = iter_create(dst->ptr, dst->lay, ITERALL);
+    NDIter* irhs = iter_create(rhs->ptr, rhs->lay);
+    NDIter* icond = iter_create(cond->ptr, cond->lay);
+    NDIter* idst = iter_create(dst->ptr, dst->lay);
 
     while (iter_next(irhs) && iter_next(icond) && iter_next(idst))
         *idst->ptr = *icond->ptr ? lhs : *irhs->ptr;
@@ -817,8 +784,8 @@ NDArray* array_scalar_array_where(NDArray* cond, f32 lhs, NDArray* rhs) {
 
 NDArray* array_scalar_scalar_where(NDArray* cond, f32 lhs, f32 rhs) {
     NDArray* dst = array_empty(cond->lay->shape, cond->lay->ndim);
-    NDIter* icond = iter_create(cond->ptr, cond->lay, ITERALL);
-    NDIter* idst = iter_create(dst->ptr, dst->lay, ITERALL);
+    NDIter* icond = iter_create(cond->ptr, cond->lay);
+    NDIter* idst = iter_create(dst->ptr, dst->lay);
 
     while (iter_next(icond) && iter_next(idst))
         *idst->ptr = *icond->ptr ? lhs : rhs;
