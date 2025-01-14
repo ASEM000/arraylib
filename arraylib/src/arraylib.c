@@ -672,19 +672,19 @@ NDArray* array_reduce(
         const size_t* reduce_dims,
         size_t reduce_ndim,
         f32 acc_init) {
-    char bucket[src->lay->ndim];
-    memset(bucket, 0, src->lay->ndim);
+    bool is_reduce_dim[src->lay->ndim];
+    memset(is_reduce_dim, 0, src->lay->ndim);
     for (size_t i = 0; i < reduce_ndim; i++)
-        bucket[reduce_dims[i]] = 1;
+        is_reduce_dim[reduce_dims[i]] = 1;
 
     size_t dst_shape[src->lay->ndim];
     for (size_t i = 0; i < src->lay->ndim; i++)
-        dst_shape[i] = (bucket[i] == 1) ? 1 : src->lay->shape[i];
+        dst_shape[i] = (is_reduce_dim[i] == true) ? 1 : src->lay->shape[i];
 
     Layout* reduced_lay = layout_copy(src->lay);
     for (size_t i = 0; i < src->lay->ndim; i++) {
-        reduced_lay->stride[i] = (bucket[i] == 1) ? src->lay->stride[i] : 0;
-        reduced_lay->shape[i] = (bucket[i] == 1) ? src->lay->shape[i] : 0;
+        reduced_lay->stride[i] = (is_reduce_dim[i] == true) ? src->lay->stride[i] : 0;
+        reduced_lay->shape[i] = (is_reduce_dim[i] == true) ? src->lay->shape[i] : 0;
     }
 
     NDArray* dst = array_zeros(dst_shape, src->lay->ndim);
