@@ -19,7 +19,6 @@
 #include <stdlib.h>
 #include <string.h>
 #define ITERDIM SIZE_MAX
-#define ITERALL ((DimSpecs){.nspec = 0})
 
 #define FREE(ptr)                  \
     _Generic(                      \
@@ -70,11 +69,6 @@ typedef struct {
     size_t ndim;    /**< Number of dimension of data. */
 } Layout;
 
-typedef struct {
-    Layout* lhs;
-    Layout* rhs;
-} LayoutPair;
-
 /**
  * @brief NDArray structure representing an N-dimensional array.
  */
@@ -85,26 +79,12 @@ typedef struct {
     bool view;   /**< Flag indicating if this is a view. */
 } NDArray;
 
-/**
- * @brief Iterator structure for iterating over an NDArray.
- */
-typedef struct {
-    size_t dim;
-    size_t value;
-} DimSpec;
 
 typedef struct {
-    DimSpec* specs;
-    size_t nspec;
-} DimSpecs;
-
-typedef struct {
-    f32* ptr;       /**< Pointer to the current element. */
-    Layout* lay;    /**< Pointer to the memory layout (shape, stride). */
-    size_t* index;  /**< Current index in the iteration. */
-    size_t* dims;   /**< Dimensions to iterate over. */
-    size_t counter; /**< Counter for the iteration. */
-    size_t size;    /**< Total size of the iteration. */
+    f32* ptr;      /**< Pointer to the current element. */
+    Layout* lay;   /**< Pointer to the memory layout (shape, stride). */
+    size_t* index; /**< Current index in the iteration. */
+    enum { ITER_START, ITER_RUN, ITER_END } status; /**< Status of the iterator. */
 } NDIter;
 
 // -------------------------------------------------------------------------------------------------
@@ -277,8 +257,6 @@ Layout* layout_copy(const Layout* src);
 
 void layout_free(Layout* lay);
 
-LayoutPair* layout_broadcast(const LayoutPair* lay);
-
 // -------------------------------------------------------------------------------------------------
 // ARRAY CREATION AND DESTRUCTION
 // -------------------------------------------------------------------------------------------------
@@ -324,14 +302,14 @@ void array_free(NDArray* array);
  * ITERALL);
  * @endcode
  */
-NDIter* iter_create(f32* ptr, const Layout* lay, const DimSpecs specs);
+NDIter* iter_create(f32* ptr, const Layout* lay);
 
 /**
  * @brief Frees the memory allocated for an iterator.
  * @param iterator Pointer to the iterator to free.
  *
  * @code
- * NDIter iter = iter_array(array, ITERALL);
+ * NDIter iter = iter_array(array);
  * iter_free(&iter); // Frees the iterator
  * @endcode
  */
@@ -343,7 +321,7 @@ void iter_free(NDIter* iterator);
  * @return True if the iterator has more elements, false otherwise.
  *
  * @code
- * NDIter iter = iter_array(array, ITERALL);
+ * NDIter iter = iter_array(array);
  * while (iter_next(iter)) {
  *     printf("%f ", *iter.ptr); // Prints each element
  * }

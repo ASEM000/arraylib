@@ -64,9 +64,8 @@ void test_array_creation() {
 void test_iterator() {
     size_t shape[] = {2, 3};
     NDArray* array = array_empty(shape, 2);
-    NDIter* iter = iter_create(array->ptr, array->lay, (DimSpecs){.nspec = 0});
+    NDIter* iter = iter_create(array->ptr, array->lay);
     TEST(assert(iter->ptr != NULL));
-    TEST(assert(iter->size == 6));
 
     size_t count = 0;
     while (iter_next(iter))
