@@ -297,11 +297,10 @@ def test_where():
     a_al = al.arange(1, 1 + 3 * 4 * 5 * 6)
     a_al = al.reshape(a_al, (3, 4, 5, 6))
     a_np = np.arange(1, 1 + 3 * 4 * 5 * 6).reshape(3, 4, 5, 6)
-    cond = al.lt(a_al, 10.)
-    b_al = al.where(cond, a_al - 10., a_al + 10.)
-    b_np = np.where(a_np <10., a_np  -10. , a_np + 10.)
+    cond = al.lt(a_al, 10.0)
+    b_al = al.where(cond, a_al - 10.0, a_al + 10.0)
+    b_np = np.where(a_np < 10.0, a_np - 10.0, a_np + 10.0)
     assert_array_equal(b_al, b_np)
-
 
 
 @pytest.mark.parametrize(
@@ -315,9 +314,23 @@ def test_where():
         [(1, 2, 3), (1, 3)],
         [(1, 2, 3), (2, 1)],
         [(1, 2, 3), (1, 1)],
-    ]
+    ],
 )
 def test_broadcast(lhs_shape, rhs_shape):
     a_al = al.ones(lhs_shape) + al.ones(rhs_shape)
     a_np = np.ones(lhs_shape) + np.ones(rhs_shape)
+    assert_array_equal(a_al, a_np)
+
+
+def test_from_numpy():
+    a_np = (np.arange(1, 1 + 3 * 4 * 5 * 6).reshape(3, 4, 5, 6) / 10.0)
+    a_np = a_np.astype(np.float32)
+    a_al = al.from_numpy(a_np)
+    assert_array_equal(a_al, a_np)
+
+
+def test_to_numpy():
+    a_al = al.arange(1, 1 + 3 * 4 * 5 * 6) / 10.0
+    a_al = al.reshape(a_al, (3, 4, 5, 6))
+    a_np = al.to_numpy(a_al)
     assert_array_equal(a_al, a_np)
