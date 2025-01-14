@@ -316,9 +316,22 @@ def _(array, dims) -> float:
 # conditional
 
 
-@primitive.where_p.register(NDArray)
+@primitive.where_p.register(NDArray, NDArray)
 def _(cond, lhs, rhs):
     cond = cond.buffer
     lhs = lhs.buffer
     rhs = rhs.buffer
-    return NDArray(buffer=lib.array_where(cond, lhs, rhs))
+    return NDArray(buffer=lib.array_array_array_where(cond, lhs, rhs))
+
+@primitive.where_p.register(NDArray, float)
+def _(cond, lhs, rhs):
+    cond = cond.buffer
+    lhs = lhs.buffer
+    return NDArray(buffer=lib.array_array_scalar_where(cond, lhs, rhs))
+
+
+@primitive.where_p.register(float, NDArray)
+def _(cond, lhs, rhs):
+    cond = cond.buffer
+    rhs = rhs.buffer
+    return NDArray(buffer=lib.array_scalar_array_where(cond, lhs, rhs))
