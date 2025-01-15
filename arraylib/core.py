@@ -242,7 +242,7 @@ def transpose(array, dst: tp.Sequence[int]):
     return primitive.transpose_p(array, dst)
 
 
-def move_axis(array, src: tp.Sequence[int], dst: tp.Sequence[int]):
+def move_dim(array, src: tp.Sequence[int], dst: tp.Sequence[int]):
     assert isinstance(src, tp.Sequence)
     assert all(isinstance(i, int) for i in src)
     assert isinstance(dst, tp.Sequence)
@@ -251,7 +251,7 @@ def move_axis(array, src: tp.Sequence[int], dst: tp.Sequence[int]):
     dst = tuple(dst)
     assert len(src) == len(dst)
     assert 0 < len(src) <= array.ndim
-    return primitive.move_axis_p(array, src, dst)
+    return primitive.move_dim_p(array, src, dst)
 
 
 def ravel(array):
@@ -410,25 +410,25 @@ def copy(array, deep=False):
 ## -------------------------------------------------------------------------------------------------
 
 
-def reduce_sum(array, axis=None):
-    assert isinstance(axis, tp.Sequence) or axis is None
-    axis = tuple(range(array.ndim)) if axis is None else tuple(axis)
-    assert 0 <= len(axis) <= array.ndim, "axis out of bounds"
-    return primitive.reduce_sum_p(array, axis) if len(axis) else array
+def reduce_sum(array, dims=None):
+    assert isinstance(dims, tp.Sequence) or dims is None
+    dims = tuple(range(array.ndim)) if dims is None else tuple(dims)
+    assert 0 <= len(dims) <= array.ndim, "dim out of bounds"
+    return primitive.reduce_sum_p(array, dims) if len(dims) else array
 
 
-def reduce_max(array, axis=None):
-    assert isinstance(axis, tp.Sequence) or axis is None
-    axis = tuple(range(array.ndim)) if axis is None else tuple(axis)
-    assert 0 <= len(axis) <= array.ndim, "axis out of bounds"
-    return primitive.reduce_max_p(array, axis) if len(axis) else array
+def reduce_max(array, dims=None):
+    assert isinstance(dims, tp.Sequence) or dims is None
+    dims = tuple(range(array.ndim)) if dims is None else tuple(dims)
+    assert 0 <= len(dims) <= array.ndim, "dim out of bounds"
+    return primitive.reduce_max_p(array, dims) if len(dims) else array
 
 
-def reduce_min(array, axis=None):
-    assert isinstance(axis, tp.Sequence) or axis is None
-    axis = tuple(range(array.ndim)) if axis is None else tuple(axis)
-    assert 0 <= len(axis) <= array.ndim, "axis out of bounds"
-    return primitive.reduce_min_p(array, axis) if len(axis) else array
+def reduce_min(array, dims=None):
+    assert isinstance(dims, tp.Sequence) or dims is None
+    dims = tuple(range(array.ndim)) if dims is None else tuple(dims)
+    assert 0 <= len(dims) <= array.ndim, "dim out of bounds"
+    return primitive.reduce_min_p(array, dims) if len(dims) else array
 
 
 def wrap_reduction_op(fn):
@@ -442,15 +442,15 @@ def wrap_reduction_op(fn):
     return wrapped
 
 
-def reduce(fn, array, axis=None, init=0.0):
-    """Reduce an array along an axis/axes with a python function"""
+def reduce(fn, array, dims=None, init=0.0):
+    """Reduce an array along an dim/axes with a python function"""
     assert isinstance(array, arraylib.NDArray)
-    assert isinstance(axis, tp.Sequence) or axis is None
-    axis = tuple(range(array.ndim)) if axis is None else tuple(axis)
-    assert 0 <= len(axis) <= array.ndim, "axis out of bounds"
+    assert isinstance(dims, tp.Sequence) or dims is None
+    dims = tuple(range(array.ndim)) if dims is None else tuple(dims)
+    assert 0 <= len(dims) <= array.ndim, "dim out of bounds"
     fn = wrap_reduction_op(fn)
-    axis = ffi.new("size_t[]", axis)
-    return arraylib.NDArray(lib.array_reduce(fn, array.buffer, axis, len(axis), init))
+    dims = ffi.new("size_t[]", dims)
+    return arraylib.NDArray(lib.array_reduce(fn, array.buffer, dims, len(dims), init))
 
 
 ## -------------------------------------------------------------------------------------------------
@@ -460,3 +460,25 @@ def reduce(fn, array, axis=None, init=0.0):
 
 def where(cond, on_true, on_false):
     return primitive.where_p(cond, on_true, on_false)
+
+
+## -------------------------------------------------------------------------------------------------
+## STACK/UNSTACK OPERATIONS
+## -------------------------------------------------------------------------------------------------
+
+
+def cat(arrays, dims: tp.Sequence[int]):
+    assert isinstance(arrays, tp.Sequence)
+    assert all(isinstance(array, arraylib.NDArray) for array in arrays)
+    assert isinstance(dims, tp.Sequence)
+    assert all(array.ndim == arrays[0].ndim for array in arrays)
+
+    for array in arrays:
+        assert all(
+            array.shape[i] == arrays[0].shape[i]
+            for i in range(array.ndim)
+            if i not in dims
+        )
+        assert all(0 <= dim < array.shape[dim] for dim in dims)
+
+    return primitive.cat_p(tuple(arrays), tuple(dims))

@@ -178,7 +178,7 @@ def test_transpose(data, axes):
 def test_move_axis(src, dst):
     a_al = al.arange(1, 1 + 3 * 4 * 5 * 6)
     a_al = al.reshape(a_al, (3, 4, 5, 6))
-    b_al = al.move_axis(a_al, src, dst)
+    b_al = al.move_dim(a_al, src, dst)
 
     a_np = np.arange(1, 1 + 3 * 4 * 5 * 6).reshape(3, 4, 5, 6)
     b_np = np.moveaxis(a_np, src, dst)
@@ -223,7 +223,7 @@ def test_getitem_setitem(data, index, value):
 def test_reduce_sum(axis):
     a_al = al.arange(1, 1 + 3 * 4 * 5 * 6)
     a_al = al.reshape(a_al, (3, 4, 5, 6))
-    b_al = al.reduce_sum(a_al, axis=axis)
+    b_al = al.reduce_sum(a_al, dims=axis)
 
     a_np = np.arange(1, 1 + 3 * 4 * 5 * 6).reshape(3, 4, 5, 6)
     b_np = np.sum(a_np, axis=axis, keepdims=True)
@@ -234,7 +234,7 @@ def test_reduce_sum(axis):
 def test_reduce_max(axis):
     a_al = al.arange(1, 1 + 3 * 4 * 5 * 6)
     a_al = al.reshape(a_al, (3, 4, 5, 6))
-    b_al = al.reduce_max(a_al, axis=axis)
+    b_al = al.reduce_max(a_al, dims=axis)
 
     a_np = np.arange(1, 1 + 3 * 4 * 5 * 6).reshape(3, 4, 5, 6)
     b_np = np.max(a_np, axis=axis, keepdims=True)
@@ -246,7 +246,7 @@ def test_reduce_max(axis):
 def test_reduce_min(axis):
     a_al = al.arange(1, 1 + 3 * 4 * 5 * 6)
     a_al = al.reshape(a_al, (3, 4, 5, 6))
-    b_al = al.reduce_min(a_al, axis=axis)
+    b_al = al.reduce_min(a_al, dims=axis)
     a_np = np.arange(1, 1 + 3 * 4 * 5 * 6).reshape(3, 4, 5, 6)
     b_np = np.min(a_np, axis=axis, keepdims=True)
     assert_array_equal(b_al, b_np)
@@ -288,7 +288,7 @@ def test_reduce():
     a_al = al.reshape(a_al, (3, 4, 5, 6))
     a_np = np.arange(1, 1 + 3 * 4 * 5 * 6).reshape(3, 4, 5, 6)
     reduce_fn = lambda x, y: x + y  # x is the accumulator, y is the current value
-    b_al = al.reduce(reduce_fn, a_al, axis=(1, 2), init=0)
+    b_al = al.reduce(reduce_fn, a_al, dims=(1, 2), init=0)
     b_np = a_np.sum(axis=(1, 2), keepdims=True)
     assert_array_equal(b_al, b_np)
 
@@ -334,7 +334,7 @@ def test_broadcast(lhs_shape, rhs_shape):
 
 
 def test_from_numpy():
-    a_np = (np.arange(1, 1 + 3 * 4 * 5 * 6).reshape(3, 4, 5, 6) / 10.0)
+    a_np = np.arange(1, 1 + 3 * 4 * 5 * 6).reshape(3, 4, 5, 6) / 10.0
     a_np = a_np.astype(np.float32)
     a_al = al.from_numpy(a_np)
     assert_array_equal(a_al, a_np)
@@ -345,3 +345,39 @@ def test_to_numpy():
     a_al = al.reshape(a_al, (3, 4, 5, 6))
     a_np = al.to_numpy(a_al)
     assert_array_equal(a_al, a_np)
+
+
+@pytest.mark.parametrize(
+    "lhs, rhs, dim",
+    [
+        [(2, 4), (3, 4), 0],
+        [(1, 6, 3), (1, 4, 3), 1],
+        [(1, 2, 3), (1, 2, 4), 2],
+    ],
+)
+def test_1d_cat(lhs, rhs, dim):
+    a_al = al.arange(prod(lhs))
+    a_al = al.reshape(a_al, lhs)
+    b_al = al.arange(prod(rhs))
+    b_al = al.reshape(b_al, rhs)
+    c_al = al.cat([a_al, b_al], [dim])
+    a_np = np.arange(prod(lhs)).reshape(lhs)
+    b_np = np.arange(prod(rhs)).reshape(rhs)
+    c_np = np.concatenate([a_np, b_np], axis=dim)
+    assert_array_equal(c_al, c_np)
+
+
+def test_nd_cat():
+    # NOTE: nd cat is like numpy block but with zero padding
+    a_al = al.arange(1, 1 + 1 * 3)
+    a_al = al.reshape(a_al, (1, 3))
+    b_al = al.arange(1, 1 + 2 * 2)
+    b_al = al.reshape(b_al, (2, 2))
+
+    a_np = np.arange(1, 1 + 1 * 3).reshape(1, 3)
+    b_np = np.arange(1, 1 + 2 * 2).reshape(2, 2)
+    c_np = np.block([[a_np, np.zeros((1, 2))], [np.zeros((2, 3)), b_np]])
+
+    c_al = al.cat([a_al, b_al], [0, 1])
+
+    assert_array_equal(c_al, c_np)

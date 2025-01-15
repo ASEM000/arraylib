@@ -22,11 +22,12 @@ from arraylib.core import (
     reduce_max,
     reduce_sum,
     reduce_min,
-    move_axis,
+    move_dim,
     reduce,
     apply,
     where,
     from_numpy,
+    cat,
 )
 from arraylib.arraytypes import NDArray, JVPNDArray
 import arraylib.impl as impl
@@ -63,8 +64,9 @@ __all__ = [
     "reduce_max",
     "reduce_sum",
     "reduce_min",
-    "move_axis",
+    "move_dim",
     "reduce",
     "apply",
     "where",
+    "cat",
 ]
