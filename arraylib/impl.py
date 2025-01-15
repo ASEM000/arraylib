@@ -52,9 +52,11 @@ def _(lhs, rhs) -> NDArray:
 def _(lhs, rhs) -> NDArray:
     return core.mul(rhs, lhs)
 
+
 @primitive.div_p.register(NDArray, float)
 def _(lhs, rhs) -> NDArray:
     return NDArray(buffer=lib.array_scalar_div(lhs.buffer, rhs))
+
 
 @primitive.div_p.register(NDArray, NDArray)
 def _(lhs, rhs) -> NDArray:
@@ -120,11 +122,11 @@ def _(array) -> NDArray:
     return NDArray(buffer=lib.array_ravel(array.buffer))
 
 
-@primitive.move_axis_p.register(NDArray)
+@primitive.move_dim_p.register(NDArray)
 def _(array, src: tuple[int, ...], dst: tuple[int, ...]) -> NDArray:
     src = ffi.new("size_t[]", src)
     dst = ffi.new("size_t[]", dst)
-    return NDArray(buffer=lib.array_move_axis(array.buffer, src, dst, len(src)))
+    return NDArray(buffer=lib.array_move_dim(array.buffer, src, dst, len(src)))
 
 
 # comparison operations
@@ -323,6 +325,7 @@ def _(cond, lhs, rhs):
     rhs = rhs.buffer
     return NDArray(buffer=lib.array_array_array_where(cond, lhs, rhs))
 
+
 @primitive.where_p.register(NDArray, float)
 def _(cond, lhs, rhs):
     cond = cond.buffer
@@ -335,3 +338,13 @@ def _(cond, lhs, rhs):
     cond = cond.buffer
     rhs = rhs.buffer
     return NDArray(buffer=lib.array_scalar_array_where(cond, lhs, rhs))
+
+
+# cat
+
+
+@primitive.cat_p.register(tuple)
+def _(arrays, dims: tuple[int, ...]):
+    narray = len(arrays)
+    ndim = len(dims)
+    return NDArray(buffer=lib.array_cat([arr.buffer for arr in arrays], narray, dims, ndim))

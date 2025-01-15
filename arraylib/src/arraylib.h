@@ -79,7 +79,6 @@ typedef struct {
     bool view;   /**< Flag indicating if this is a view. */
 } NDArray;
 
-
 typedef struct {
     f32* ptr;      /**< Pointer to the current element. */
     Layout* lay;   /**< Pointer to the memory layout (shape, stride). */
@@ -559,10 +558,10 @@ NDArray* array_transpose(NDArray* array, const size_t* dst);
  * @code
  * size_t src[] = {0, 1};
  * size_t dst[] = {1, 0};
- * NDArray* moved = array_move_axis(array, src, dst, 2); // Swaps the axes
+ * NDArray* moved = array_move_dim(array, src, dst, 2); // Swaps the axes
  * @endcode
  */
-NDArray* array_move_axis(NDArray* array, const size_t* src, const size_t* dst, size_t ndim);
+NDArray* array_move_dim(NDArray* array, const size_t* src, const size_t* dst, size_t ndim);
 
 /**
  * @brief Flattens an NDArray into a 1D array.
@@ -898,7 +897,7 @@ NDArray* array_array_dot(NDArray* lhs, NDArray* rhs);
  *
  * @code
  * size_t axes[] = {0};
- * NDArray* result = array_reduce(add, array, axes, 1, 0.0); // Sums along the first axis
+ * NDArray* result = array_reduce(add, array, axes, 1, 0.0); // Sums along the first dim
  * @endcode
  */
 NDArray* array_reduce(
@@ -916,7 +915,7 @@ NDArray* array_reduce(
  *
  * @code
  * size_t reduce_dims[] = {0};
- * NDArray* result = array_reduce_max(array, reduce_dims, 1); // Finds the max along the first axis
+ * NDArray* result = array_reduce_max(array, reduce_dims, 1); // Finds the max along the first dim
  * @endcode
  */
 NDArray* array_reduce_max(NDArray* array, size_t* reduce_dims, size_t ndim);
@@ -930,7 +929,7 @@ NDArray* array_reduce_max(NDArray* array, size_t* reduce_dims, size_t ndim);
  *
  * @code
  * size_t reduce_dims[] = {0};
- * NDArray* result = array_reduce_min(array, reduce_dims, 1); // Finds the min along the first axis
+ * NDArray* result = array_reduce_min(array, reduce_dims, 1); // Finds the min along the first dim
  * @endcode
  */
 NDArray* array_reduce_min(NDArray* array, size_t* reduce_dims, size_t ndim);
@@ -944,7 +943,7 @@ NDArray* array_reduce_min(NDArray* array, size_t* reduce_dims, size_t ndim);
  *
  * @code
  * size_t reduce_dims[] = {0};
- * NDArray* result = array_reduce_sum(array, reduce_dims, 1); // Sums along the first axis
+ * NDArray* result = array_reduce_sum(array, reduce_dims, 1); // Sums along the first dim
  * @endcode
  */
 NDArray* array_reduce_sum(NDArray* array, size_t* reduce_dims, size_t ndim);
@@ -965,6 +964,12 @@ NDArray* array_array_array_where(NDArray* cond, NDArray* lhs, NDArray* rhs);
 NDArray* array_array_scalar_where(NDArray* cond, NDArray* lhs, f32 rhs);
 NDArray* array_scalar_array_where(NDArray* cond, f32 lhs, NDArray* rhs);
 NDArray* array_scalar_scalar_where(NDArray* cond, f32 lhs, f32 rhs);
+
+// -------------------------------------------------------------------------------------------------
+// JOIN OPERATIONS
+// -------------------------------------------------------------------------------------------------
+
+NDArray* array_cat(NDArray** arrays, size_t narray, size_t* dims, size_t ndim);
 
 // END
 

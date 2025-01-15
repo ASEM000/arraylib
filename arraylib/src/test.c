@@ -327,31 +327,37 @@ void test_array_reduce_max() {
 
 void test_array_reduce_sum() {
     NDArray* array = array_arange(1, 26, 1);
-    array = array_reshape(array, (size_t[]){5, 5}, 2);
-    array = array_reduce_sum(array, (size_t[]){0}, 1);
+    NDArray* reshaped_array = array_reshape(array, (size_t[]){5, 5}, 2);
+    NDArray* reduce_array = array_reduce_sum(reshaped_array, (size_t[]){0}, 1);
 
-    TEST(assert(array->data->mem[0] == 55.));
-    TEST(assert(array->lay->ndim == 2));
-    TEST(assert(array->lay->shape[0] == 1));
-    TEST(assert(array->lay->shape[1] == 5));
-
-    array = array_arange(1, 3 * 4 * 5 * 6 + 1, 1);
-    array = array_reshape(array, (size_t[]){3, 4, 5, 6}, 4);
-    array = array_reduce_sum(array, (size_t[]){2}, 1);
-    TEST(assert(array->data->mem[3] == 80.));
+    TEST(assert(reduce_array->data->mem[0] == 55.));
+    TEST(assert(reduce_array->lay->ndim == 2));
+    TEST(assert(reduce_array->lay->shape[0] == 1));
+    TEST(assert(reduce_array->lay->shape[1] == 5));
     FREE(array);
+    FREE(reshaped_array);
+    FREE(reduce_array);
+
+    NDArray* array_ = array_arange(1, 3 * 4 * 5 * 6 + 1, 1);
+    NDArray* reshaped_array_ = array_reshape(array_, (size_t[]){3, 4, 5, 6}, 4);
+    NDArray* reduced_array_ = array_reduce_sum(reshaped_array_, (size_t[]){2}, 1);
+    TEST(assert(reduced_array_->data->mem[3] == 80.));
+    FREE(array_);
+    FREE(reshaped_array_);
+    FREE(reduced_array_);
 }
 
 void test_array_reshape() {
     NDArray* array = array_arange(1, 3 * 4 * 5 * 6 + 1, 1);
-    array = array_reshape(array, (size_t[]){3, 4, 5, 6}, 4);
+    NDArray* reshaped_array = array_reshape(array, (size_t[]){3, 4, 5, 6}, 4);
     size_t src[2] = {1, 3};
     size_t dst[2] = {0, 2};
-    array_move_axis(array, src, dst, 2);
+    array_move_dim(reshaped_array, src, dst, 2);
     FREE(array);
+    FREE(reshaped_array);
 }
 
-void test_move_axis() {
+void test_move_dim() {
     size_t shape[] = {2, 3};
     NDArray* array = array_zeros(shape, 2);
     for (size_t i = 0; i < 2; i++) {
@@ -363,7 +369,7 @@ void test_move_axis() {
 
     size_t src[] = {0, 1};
     size_t dst[] = {1, 0};
-    NDArray* moved_array = array_move_axis(array, src, dst, 2);
+    NDArray* moved_array = array_move_dim(array, src, dst, 2);
 
     assert(moved_array->lay->shape[0] == 3 && moved_array->lay->shape[1] == 2);
     for (size_t i = 0; i < 3; i++) {
@@ -381,6 +387,23 @@ void test_transpose() {
     size_t shape[] = {2, 3, 4};
     NDArray* array = array_zeros(shape, 3);
     array = array_transpose(array, (size_t[]){1, 0, 2});
+    FREE(array);
+}
+
+void test_stack() {
+    NDArray* lhs = array_zeros((size_t[]){2, 3}, 2);
+    NDArray* rhs = array_ones((size_t[]){2, 5}, 2);
+    NDArray* arrays[] = {lhs, rhs};
+    NDArray* out = array_cat(arrays, 2, (size_t[]){1}, 1);
+
+    NDIter* iter = iter_create(out->ptr, out->lay);
+    printf("shape: %zu, %zu\n", out->lay->shape[0], out->lay->shape[1]);
+    // while (iter_next(iter))
+    //     printf("index[%zu, %zu]=%f\n", iter->index[0], iter->index[1], *iter->ptr);
+
+    FREE(lhs);
+    FREE(rhs);
+    FREE(out);
 }
 
 int main() {
@@ -400,9 +423,10 @@ int main() {
     test_array_reduce_max();
     test_array_reduce_sum();
     test_array_reshape();
-    test_move_axis();
+    test_move_dim();
     test_transpose();
     test_dimension_mismatch();
+    test_stack();
     assert(assertion_failures == 2);
 
     printf("tests passed %d.", assertion_failures);

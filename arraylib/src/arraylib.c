@@ -42,8 +42,8 @@ size_t* size_t_set(size_t* dst, size_t value, size_t size) {
 
 size_t* size_t_copy(size_t* dst, const size_t* src, size_t size) {
     assert(src != NULL && "ValueError: src copy is NULL");
-    memcpy(dst, src, sizeof(size_t) * size);
-    return dst;
+    return memcpy(dst, src, sizeof(size_t) * size);
+    ;
 }
 
 size_t compute_flat_index(const size_t* index, const size_t* stride, size_t ndim) {
@@ -432,7 +432,7 @@ NDArray* array_transpose(NDArray* src, const size_t* dims) {
     return dst;
 }
 
-NDArray* array_move_axis(NDArray* src, const size_t* from, const size_t* to, size_t ndim) {
+NDArray* array_move_dim(NDArray* src, const size_t* from, const size_t* to, size_t ndim) {
     for (size_t i = 0; i < ndim; i++) {
         assert(from[i] >= 0 && from[i] < src->lay->ndim && "ValueError: out of bounds");
         assert(from[i] >= 0 && from[i] < src->lay->ndim && "ValueError: out of bounds");
@@ -442,7 +442,7 @@ NDArray* array_move_axis(NDArray* src, const size_t* from, const size_t* to, siz
     memset(bucket, 0, src->lay->ndim);
 
     for (size_t i = 0; i < ndim; i++)
-        bucket[from[i]] = 1;  // mark used axis
+        bucket[from[i]] = 1;  // mark used dimension
     NDArray* dst = is_contiguous(src) ? array_shallow_copy(src) : array_deep_copy(src);
     size_t to_from[src->lay->ndim];
     size_t_set(to_from, ITERDIM, src->lay->ndim);
@@ -672,7 +672,7 @@ NDArray* array_reduce(
         const size_t* reduce_dims,
         size_t reduce_ndim,
         f32 acc_init) {
-    bool is_reduce_dim[src->lay->ndim];
+    char is_reduce_dim[src->lay->ndim];
     memset(is_reduce_dim, 0, src->lay->ndim);
     for (size_t i = 0; i < reduce_ndim; i++)
         is_reduce_dim[reduce_dims[i]] = 1;
@@ -699,7 +699,7 @@ NDArray* array_reduce(
         while (iter_next(isrc))
             sum = acc_fn(sum, *isrc->ptr);
         isrc->status = ITER_START;
-        array_set_scalar_from_index(dst, sum, idst->index);
+        dst = array_set_scalar_from_index(dst, sum, idst->index);
     }
     FREE(isrc);
     FREE(idst);
@@ -792,5 +792,62 @@ NDArray* array_scalar_scalar_where(NDArray* cond, f32 lhs, f32 rhs) {
 
     FREE(icond);
     FREE(idst);
+    return dst;
+}
+
+// -------------------------------------------------------------------------------------------------
+// JOIN OPERATIONS
+// -------------------------------------------------------------------------------------------------
+
+NDArray* array_cat(NDArray** arrays, size_t narray, size_t* dims, size_t ndim) {
+    // NOTE: concatenation along multiple dimensions is similar to
+    // zero-padded numpy block, for instance an array [[1, 2, 3]] of shape 1x3 and
+    // and array [[1, 2],[3, 4]] of shape 2x2 can be concatenated along the
+    // both axes to form [[1, 2, 3, 0, 0], [0, 0, 0, 1, 2], [0, 0, 0, 3, 4]] of shape 3x5
+    size_t ref_ndim = arrays[0]->lay->ndim;
+    char cat_dim[ref_ndim];
+    memset(cat_dim, 0, ref_ndim);
+
+    for (size_t i = 0; i < ndim; i++) {
+        assert(dims[i] < ref_ndim && "ValueError: concat dimension out of bounds");
+        cat_dim[dims[i]] = 1;
+    }
+
+    for (size_t i = 1; i < narray; i++) {
+        assert(arrays[i]->lay->ndim == ref_ndim && "ValueError: dimension mismatch.");
+        for (size_t j = 0; j < ref_ndim; j++) {
+            if (cat_dim[j] == 1)
+                continue;
+            assert(arrays[i]->lay->shape[j] == arrays[0]->lay->shape[j]
+                   && "ValueError: non-cat dimensions have different values.");
+        }
+    }
+
+    size_t* out_shape = size_t_copy(size_t_alloc(ref_ndim), arrays[0]->lay->shape, ref_ndim);
+    for (size_t i = 1; i < narray; i++)
+        for (size_t j = 0; j < ndim; j++)
+            out_shape[dims[j]] += arrays[i]->lay->shape[dims[j]];
+
+    NDArray* dst = array_zeros(out_shape, ref_ndim);
+    FREE(out_shape);
+
+    size_t dims_offset[ndim];
+    size_t_set(dims_offset, 0, ndim);
+
+    for (size_t i = 0; i < narray; i++) {
+        NDIter* isrc = iter_create(arrays[i]->ptr, arrays[i]->lay);
+
+        while (iter_next(isrc)) {
+            size_t temp_index[ref_ndim];
+            size_t_copy(temp_index, isrc->index, ref_ndim);
+            for (size_t j = 0; j < ndim; j++)
+                temp_index[dims[j]] += dims_offset[j];
+            array_set_scalar_from_index(dst, *isrc->ptr, temp_index);
+        }
+        for (size_t j = 0; j < ndim; j++)
+            dims_offset[j] += arrays[i]->lay->shape[dims[j]];
+        FREE(isrc);
+    }
+
     return dst;
 }
