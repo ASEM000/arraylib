@@ -828,7 +828,7 @@ NDArray* array_cat(NDArray** arrays, size_t narray, size_t* dims, size_t ndim) {
         for (size_t j = 0; j < ndim; j++)
             out_shape[dims[j]] += arrays[i]->lay->shape[dims[j]];
 
-    NDArray* dst = array_empty(out_shape, ref_ndim);
+    NDArray* dst = array_zeros(out_shape, ref_ndim);
     FREE(out_shape);
 
     size_t dims_offset[ndim];
