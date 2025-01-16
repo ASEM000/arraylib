@@ -259,7 +259,7 @@ bool iter_next(NDIter* iter) {
 // COPY
 // -------------------------------------------------------------------------------------------------
 
-NDArray* array_shallow_copy(NDArray* src) {
+NDArray* array_shallow_copy(const NDArray* src) {
     assert(src != NULL && "TypeError: shallow copy of NULL.");
     NDArray* dst = (NDArray*)alloc(sizeof(NDArray));
     dst->ptr = src->ptr;
@@ -270,7 +270,7 @@ NDArray* array_shallow_copy(NDArray* src) {
     return dst;
 }
 
-NDArray* array_deep_copy(NDArray* src) {
+NDArray* array_deep_copy(const NDArray* src) {
     NDArray* dst = array_empty(src->lay->shape, src->lay->ndim);
     NDIter* idst = iter_create(dst->ptr, dst->lay);
     NDIter* isrc = iter_create(src->ptr, src->lay);
@@ -332,13 +332,13 @@ NDArray* array_linspace(f32 start, f32 end, f32 n) {
 // GETTERS
 // -------------------------------------------------------------------------------------------------
 
-f32 array_get_scalar_from_index(NDArray* array, const size_t* index) {
+f32 array_get_scalar_from_index(const NDArray* array, const size_t* index) {
     size_t findex = compute_flat_index(index, array->lay->stride, array->lay->ndim);
     return array->ptr[findex];
 }
 
 NDArray* array_get_view_from_range(
-        NDArray* src,
+        const NDArray* src,
         const size_t* start,
         const size_t* end,
         const size_t* step) {
@@ -401,7 +401,7 @@ NDArray* array_set_scalar_from_range(
 
 NDArray* array_set_view_from_array(
         NDArray* dst,
-        NDArray* src,
+        const NDArray* src,
         const size_t* start,
         const size_t* end,
         const size_t* step) {
@@ -437,7 +437,7 @@ NDArray* array_set_view_from_array(
 // RESHAPING
 // -------------------------------------------------------------------------------------------------
 
-NDArray* array_reshape(NDArray* src, const size_t* shape, size_t ndim) {
+NDArray* array_reshape(const NDArray* src, const size_t* shape, size_t ndim) {
     assert(prod(shape, ndim) == src->data->size);
     NDArray* dst = is_contiguous(src) ? array_shallow_copy(src) : array_deep_copy(src);
     FREE(dst->lay);
@@ -448,7 +448,7 @@ NDArray* array_reshape(NDArray* src, const size_t* shape, size_t ndim) {
     return dst;
 }
 
-NDArray* array_transpose(NDArray* src, const size_t* dims) {
+NDArray* array_transpose(const NDArray* src, const size_t* dims) {
     NDArray* dst = is_contiguous(src) ? array_shallow_copy(src) : array_deep_copy(src);
     size_t ndim = src->lay->ndim;
     Layout* original_layout = layout_copy(src->lay);
@@ -460,7 +460,7 @@ NDArray* array_transpose(NDArray* src, const size_t* dims) {
     return dst;
 }
 
-NDArray* array_move_dim(NDArray* src, const size_t* from, const size_t* to, size_t ndim) {
+NDArray* array_move_dim(const NDArray* src, const size_t* from, const size_t* to, size_t ndim) {
     for (size_t i = 0; i < ndim; i++) {
         assert(from[i] >= 0 && from[i] < src->lay->ndim && "ValueError: out of bounds");
         assert(from[i] >= 0 && from[i] < src->lay->ndim && "ValueError: out of bounds");
@@ -493,7 +493,7 @@ NDArray* array_move_dim(NDArray* src, const size_t* from, const size_t* to, size
     return dst;
 }
 
-NDArray* array_ravel(NDArray* src) {
+NDArray* array_ravel(const NDArray* src) {
     size_t total = prod(src->lay->shape, src->lay->ndim);
     NDArray* dst = is_contiguous(src) ? array_shallow_copy(src) : array_deep_copy(src);
     FREE(dst->lay);
@@ -507,7 +507,7 @@ NDArray* array_ravel(NDArray* src) {
 // ARRAY-SCALAR OPERATIONS
 // -------------------------------------------------------------------------------------------------
 
-NDArray* array_scalar_op(binop fn, NDArray* src, f32 rhs) {
+NDArray* array_scalar_op(binop fn, const NDArray* src, f32 rhs) {
     NDArray* dst = array_empty(src->lay->shape, src->lay->ndim);
     NDIter* isrc = iter_create(src->ptr, src->lay);
     NDIter* idst = iter_create(dst->ptr, dst->lay);
@@ -518,24 +518,24 @@ NDArray* array_scalar_op(binop fn, NDArray* src, f32 rhs) {
     return dst;
 }
 
-NDArray* array_scalar_add(NDArray* lhs, f32 rhs) { return array_scalar_op(sum32, lhs, rhs); }
-NDArray* array_scalar_sub(NDArray* lhs, f32 rhs) { return array_scalar_op(sub32, lhs, rhs); }
-NDArray* array_scalar_mul(NDArray* lhs, f32 rhs) { return array_scalar_op(mul32, lhs, rhs); }
-NDArray* array_scalar_div(NDArray* lhs, f32 rhs) { return array_scalar_op(div32, lhs, rhs); }
-NDArray* array_scalar_pow(NDArray* lhs, f32 rhs) { return array_scalar_op(pow32, lhs, rhs); }
+NDArray* array_scalar_add(const NDArray* lhs, f32 rhs) { return array_scalar_op(sum32, lhs, rhs); }
+NDArray* array_scalar_sub(const NDArray* lhs, f32 rhs) { return array_scalar_op(sub32, lhs, rhs); }
+NDArray* array_scalar_mul(const NDArray* lhs, f32 rhs) { return array_scalar_op(mul32, lhs, rhs); }
+NDArray* array_scalar_div(const NDArray* lhs, f32 rhs) { return array_scalar_op(div32, lhs, rhs); }
+NDArray* array_scalar_pow(const NDArray* lhs, f32 rhs) { return array_scalar_op(pow32, lhs, rhs); }
 
-NDArray* array_scalar_eq(NDArray* lhs, f32 rhs) { return array_scalar_op(eq32, lhs, rhs); }
-NDArray* array_scalar_neq(NDArray* lhs, f32 rhs) { return array_scalar_op(neq32, lhs, rhs); }
-NDArray* array_scalar_lt(NDArray* lhs, f32 rhs) { return array_scalar_op(lt32, lhs, rhs); }
-NDArray* array_scalar_leq(NDArray* lhs, f32 rhs) { return array_scalar_op(leq32, lhs, rhs); }
-NDArray* array_scalar_gt(NDArray* lhs, f32 rhs) { return array_scalar_op(gt32, lhs, rhs); }
-NDArray* array_scalar_geq(NDArray* lhs, f32 rhs) { return array_scalar_op(geq32, lhs, rhs); }
+NDArray* array_scalar_eq(const NDArray* lhs, f32 rhs) { return array_scalar_op(eq32, lhs, rhs); }
+NDArray* array_scalar_neq(const NDArray* lhs, f32 rhs) { return array_scalar_op(neq32, lhs, rhs); }
+NDArray* array_scalar_lt(const NDArray* lhs, f32 rhs) { return array_scalar_op(lt32, lhs, rhs); }
+NDArray* array_scalar_leq(const NDArray* lhs, f32 rhs) { return array_scalar_op(leq32, lhs, rhs); }
+NDArray* array_scalar_gt(const NDArray* lhs, f32 rhs) { return array_scalar_op(gt32, lhs, rhs); }
+NDArray* array_scalar_geq(const NDArray* lhs, f32 rhs) { return array_scalar_op(geq32, lhs, rhs); }
 
 // -------------------------------------------------------------------------------------------------
 // MATMUL
 // -------------------------------------------------------------------------------------------------
 
-NDArray* array_array_matmul(NDArray* lhs, NDArray* rhs) {
+NDArray* array_array_matmul(const NDArray* lhs, const NDArray* rhs) {
     assert(lhs->lay->ndim == 2 && rhs->lay->ndim == 2);
     assert(lhs->lay->shape[1] == rhs->lay->shape[0]);
     size_t M = lhs->lay->shape[0];
@@ -582,7 +582,7 @@ NDArray* array_array_matmul(NDArray* lhs, NDArray* rhs) {
 // ARRAY-ARRAY OPERATIONS
 // -------------------------------------------------------------------------------------------------
 
-NDArray* array_array_scalar_op(binop fn, NDArray* lhs, NDArray* rhs) {
+NDArray* array_array_scalar_op(binop fn, const NDArray* lhs, const NDArray* rhs) {
     assert(is_broadcastable(lhs->lay, rhs->lay) && "ValueError: can not broadcast.");
     const Layout* lays[2] = {lhs->lay, rhs->lay};
     Layout** blays = layout_broadcast(lays, 2);
@@ -606,39 +606,39 @@ NDArray* array_array_scalar_op(binop fn, NDArray* lhs, NDArray* rhs) {
     return out;
 }
 
-NDArray* array_array_sum(NDArray* lhs, NDArray* rhs) {
+NDArray* array_array_sum(const NDArray* lhs, const NDArray* rhs) {
     return array_array_scalar_op(sum32, lhs, rhs);
 }
-NDArray* array_array_sub(NDArray* lhs, NDArray* rhs) {
+NDArray* array_array_sub(const NDArray* lhs, const NDArray* rhs) {
     return array_array_scalar_op(sub32, lhs, rhs);
 }
-NDArray* array_array_mul(NDArray* lhs, NDArray* rhs) {
+NDArray* array_array_mul(const NDArray* lhs, const NDArray* rhs) {
     return array_array_scalar_op(mul32, lhs, rhs);
 }
-NDArray* array_array_div(NDArray* lhs, NDArray* rhs) {
+NDArray* array_array_div(const NDArray* lhs, const NDArray* rhs) {
     return array_array_scalar_op(div32, lhs, rhs);
 }
-NDArray* array_array_pow(NDArray* lhs, NDArray* rhs) {
+NDArray* array_array_pow(const NDArray* lhs, const NDArray* rhs) {
     return array_array_scalar_op(pow32, lhs, rhs);
 }
 
 // comparison
-NDArray* array_array_eq(NDArray* lhs, NDArray* rhs) {
+NDArray* array_array_eq(const NDArray* lhs, const NDArray* rhs) {
     return array_array_scalar_op(eq32, lhs, rhs);
 }
-NDArray* array_array_neq(NDArray* lhs, NDArray* rhs) {
+NDArray* array_array_neq(const NDArray* lhs, const NDArray* rhs) {
     return array_array_scalar_op(neq32, lhs, rhs);
 }
-NDArray* array_array_gt(NDArray* lhs, NDArray* rhs) {
+NDArray* array_array_gt(const NDArray* lhs, const NDArray* rhs) {
     return array_array_scalar_op(gt32, lhs, rhs);
 }
-NDArray* array_array_geq(NDArray* lhs, NDArray* rhs) {
+NDArray* array_array_geq(const NDArray* lhs, const NDArray* rhs) {
     return array_array_scalar_op(geq32, lhs, rhs);
 }
-NDArray* array_array_lt(NDArray* lhs, NDArray* rhs) {
+NDArray* array_array_lt(const NDArray* lhs, const NDArray* rhs) {
     return array_array_scalar_op(lt32, lhs, rhs);
 }
-NDArray* array_array_leq(NDArray* lhs, NDArray* rhs) {
+NDArray* array_array_leq(const NDArray* lhs, const NDArray* rhs) {
     return array_array_scalar_op(leq32, lhs, rhs);
 }
 
@@ -650,7 +650,7 @@ static inline f32 log32(f32 lhs) { return lhs == 0 ? 0 : logf(lhs); }
 static inline f32 neg32(f32 lhs) { return -lhs; }
 static inline f32 exp32(f32 lhs) { return expf(lhs); }
 
-NDArray* array_op(uniop fn, NDArray* src) {
+NDArray* array_op(uniop fn, const NDArray* src) {
     NDArray* dst = array_empty(src->lay->shape, src->lay->ndim);
     NDIter* isrc = iter_create(src->ptr, src->lay);
     NDIter* idst = iter_create(dst->ptr, dst->lay);
@@ -661,15 +661,15 @@ NDArray* array_op(uniop fn, NDArray* src) {
     return dst;
 }
 
-NDArray* array_log(NDArray* array) { return array_op(log32, array); }
-NDArray* array_neg(NDArray* array) { return array_op(neg32, array); }
-NDArray* array_exp(NDArray* array) { return array_op(exp32, array); }
+NDArray* array_log(const NDArray* array) { return array_op(log32, array); }
+NDArray* array_neg(const NDArray* array) { return array_op(neg32, array); }
+NDArray* array_exp(const NDArray* array) { return array_op(exp32, array); }
 
 // -------------------------------------------------------------------------------------------------
 // REDUCTION OPERATIONS
 // -------------------------------------------------------------------------------------------------
 
-NDArray* array_array_dot(NDArray* lhs, NDArray* rhs) {
+NDArray* array_array_dot(const NDArray* lhs, const NDArray* rhs) {
     assert(lhs->lay->ndim == 1 && "ValueError: lhs dimension != 1 for dot.");
     assert(rhs->lay->ndim == 1 && "ValueError: rhs dimension != 1 for dot.");
     assert(lhs->lay->shape[0] == rhs->lay->shape[0] && "ValueError: dot shape mismatch.");
@@ -687,7 +687,7 @@ NDArray* array_array_dot(NDArray* lhs, NDArray* rhs) {
 
 NDArray* array_reduce(
         binop acc_fn,
-        NDArray* src,
+        const NDArray* src,
         const size_t* reduce_dims,
         size_t reduce_ndim,
         f32 acc_init) {
@@ -725,15 +725,15 @@ NDArray* array_reduce(
     return dst;
 }
 
-NDArray* array_reduce_max(NDArray* array, size_t* reduce_dims, size_t ndim) {
+NDArray* array_reduce_max(const NDArray* array, const size_t* reduce_dims, size_t ndim) {
     return array_reduce(max32, array, reduce_dims, ndim, -INFINITY);
 }
 
-NDArray* array_reduce_min(NDArray* array, size_t* reduce_dims, size_t ndim) {
+NDArray* array_reduce_min(const NDArray* array, const size_t* reduce_dims, size_t ndim) {
     return array_reduce(min32, array, reduce_dims, ndim, INFINITY);
 }
 
-NDArray* array_reduce_sum(NDArray* array, size_t* reduce_dims, size_t ndim) {
+NDArray* array_reduce_sum(const NDArray* array, const size_t* reduce_dims, size_t ndim) {
     return array_reduce(sum32, array, reduce_dims, ndim, 0);
 }
 
@@ -741,7 +741,7 @@ NDArray* array_reduce_sum(NDArray* array, size_t* reduce_dims, size_t ndim) {
 // CONDITIONAL OPERATIONS
 // -------------------------------------------------------------------------------------------------
 
-NDArray* array_array_array_where(NDArray* cond, NDArray* lhs, NDArray* rhs) {
+NDArray* array_array_array_where(const NDArray* cond, const NDArray* lhs, const NDArray* rhs) {
     assert(cond->lay->ndim == lhs->lay->ndim && lhs->lay->ndim && rhs->lay->ndim);
     for (size_t i = 0; i < lhs->lay->ndim; i++)
         assert(cond->lay->shape[i] == lhs->lay->shape[i]
@@ -763,7 +763,7 @@ NDArray* array_array_array_where(NDArray* cond, NDArray* lhs, NDArray* rhs) {
     return dst;
 }
 
-NDArray* array_array_scalar_where(NDArray* cond, NDArray* lhs, f32 rhs) {
+NDArray* array_array_scalar_where(const NDArray* cond, const NDArray* lhs, f32 rhs) {
     assert(cond->lay->ndim == lhs->lay->ndim && lhs->lay->ndim);
     for (size_t i = 0; i < lhs->lay->ndim; i++)
         assert(cond->lay->shape[i] == lhs->lay->shape[i]);
@@ -782,7 +782,7 @@ NDArray* array_array_scalar_where(NDArray* cond, NDArray* lhs, f32 rhs) {
     return dst;
 }
 
-NDArray* array_scalar_array_where(NDArray* cond, f32 lhs, NDArray* rhs) {
+NDArray* array_scalar_array_where(const NDArray* cond, f32 lhs, const NDArray* rhs) {
     assert(cond->lay->ndim && rhs->lay->ndim);
     for (size_t i = 0; i < rhs->lay->ndim; i++)
         assert(cond->lay->shape[i] == rhs->lay->shape[i]);
@@ -801,7 +801,7 @@ NDArray* array_scalar_array_where(NDArray* cond, f32 lhs, NDArray* rhs) {
     return dst;
 }
 
-NDArray* array_scalar_scalar_where(NDArray* cond, f32 lhs, f32 rhs) {
+NDArray* array_scalar_scalar_where(const NDArray* cond, f32 lhs, f32 rhs) {
     NDArray* dst = array_empty(cond->lay->shape, cond->lay->ndim);
     NDIter* icond = iter_create(cond->ptr, cond->lay);
     NDIter* idst = iter_create(dst->ptr, dst->lay);
@@ -818,7 +818,7 @@ NDArray* array_scalar_scalar_where(NDArray* cond, f32 lhs, f32 rhs) {
 // JOIN OPERATIONS
 // -------------------------------------------------------------------------------------------------
 
-NDArray* array_cat(NDArray** arrays, size_t narray, size_t* dims, size_t ndim) {
+NDArray* array_cat(const NDArray** arrays, size_t narray, const size_t* dims, size_t ndim) {
     // NOTE: concatenation along multiple dimensions is similar to
     // zero-padded numpy block, for instance an array [[1, 2, 3]] of shape 1x3 and
     // and array [[1, 2],[3, 4]] of shape 2x2 can be concatenated along the

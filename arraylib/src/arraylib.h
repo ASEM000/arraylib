@@ -343,7 +343,7 @@ bool iter_next(NDIter* iter);
  * NDArray* copy = array_shallow_copy(array); // Creates a shallow copy
  * @endcode
  */
-NDArray* array_shallow_copy(NDArray* array);
+NDArray* array_shallow_copy(const NDArray* array);
 
 /**
  * @brief Creates a deep copy of an NDArray.
@@ -355,7 +355,7 @@ NDArray* array_shallow_copy(NDArray* array);
  * NDArray* copy = array_deep_copy(array); // Creates a deep copy
  * @endcode
  */
-NDArray* array_deep_copy(NDArray* array);
+NDArray* array_deep_copy(const NDArray* array);
 
 // -------------------------------------------------------------------------------------------------
 // INITIALIZATION
@@ -443,7 +443,7 @@ NDArray* array_linspace(f32 start, f32 end, f32 n);
  * f32 value = array_get_scalar_from_index(array, index); // Gets the value at index (1, 1)
  * @endcode
  */
-f32 array_get_scalar_from_index(NDArray* array, const size_t* index);
+f32 array_get_scalar_from_index(const NDArray* array, const size_t* index);
 
 /**
  * @brief Gets a view of an NDArray from a range of indices.
@@ -461,7 +461,7 @@ f32 array_get_scalar_from_index(NDArray* array, const size_t* index);
  * @endcode
  */
 NDArray* array_get_view_from_range(
-        NDArray* array,
+        const NDArray* array,
         const size_t* start,
         const size_t* end,
         const size_t* step);
@@ -511,7 +511,7 @@ NDArray* array_set_scalar_from_range(
  */
 NDArray* array_set_view_from_array(
         NDArray* dst,
-        NDArray* src,
+        const NDArray* src,
         const size_t* start,
         const size_t* end,
         const size_t* step);
@@ -533,7 +533,7 @@ NDArray* array_set_view_from_array(
  * size 4
  * @endcode
  */
-NDArray* array_reshape(NDArray* array, const size_t* shape, size_t ndim);
+NDArray* array_reshape(const NDArray* array, const size_t* shape, size_t ndim);
 
 /**
  * @brief Transposes an NDArray according to the given destination axes.
@@ -546,7 +546,7 @@ NDArray* array_reshape(NDArray* array, const size_t* shape, size_t ndim);
  * NDArray* transposed = array_transpose(array, dst); // Transposes the array
  * @endcode
  */
-NDArray* array_transpose(NDArray* array, const size_t* dst);
+NDArray* array_transpose(const NDArray* array, const size_t* dst);
 
 /**
  * @brief Moves axes of an NDArray to new positions.
@@ -562,7 +562,7 @@ NDArray* array_transpose(NDArray* array, const size_t* dst);
  * NDArray* moved = array_move_dim(array, src, dst, 2); // Swaps the axes
  * @endcode
  */
-NDArray* array_move_dim(NDArray* array, const size_t* src, const size_t* dst, size_t ndim);
+NDArray* array_move_dim(const NDArray* array, const size_t* src, const size_t* dst, size_t ndim);
 
 /**
  * @brief Flattens an NDArray into a 1D array.
@@ -573,7 +573,7 @@ NDArray* array_move_dim(NDArray* array, const size_t* src, const size_t* dst, si
  * NDArray* flattened = array_ravel(array); // Flattens the array
  * @endcode
  */
-NDArray* array_ravel(NDArray* array);
+NDArray* array_ravel(const NDArray* array);
 
 // -------------------------------------------------------------------------------------------------
 // ARRAY-SCALAR OPERATIONS
@@ -590,7 +590,7 @@ NDArray* array_ravel(NDArray* array);
  * NDArray* result = array_scalar_op(add, array, 5.0); // Adds 5.0 to each element
  * @endcode
  */
-NDArray* array_scalar_op(binop fn, NDArray* lhs, f32 rhs);
+NDArray* array_scalar_op(binop fn, const NDArray* lhs, f32 rhs);
 
 /**
  * @brief Adds a scalar to an NDArray.
@@ -602,7 +602,7 @@ NDArray* array_scalar_op(binop fn, NDArray* lhs, f32 rhs);
  * NDArray* result = array_scalar_add(array, 5.0); // Adds 5.0 to each element
  * @endcode
  */
-NDArray* array_scalar_add(NDArray* lhs, f32 rhs);
+NDArray* array_scalar_add(const NDArray* lhs, f32 rhs);
 
 /**
  * @brief Subtracts a scalar from an NDArray.
@@ -614,7 +614,7 @@ NDArray* array_scalar_add(NDArray* lhs, f32 rhs);
  * NDArray* result = array_scalar_sub(array, 5.0); // Subtracts 5.0 from each element
  * @endcode
  */
-NDArray* array_scalar_sub(NDArray* lhs, f32 rhs);
+NDArray* array_scalar_sub(const NDArray* lhs, f32 rhs);
 
 /**
  * @brief Multiplies an NDArray by a scalar.
@@ -626,7 +626,7 @@ NDArray* array_scalar_sub(NDArray* lhs, f32 rhs);
  * NDArray* result = array_scalar_mul(array, 5.0); // Multiplies each element by 5.0
  * @endcode
  */
-NDArray* array_scalar_mul(NDArray* lhs, f32 rhs);
+NDArray* array_scalar_mul(const NDArray* lhs, f32 rhs);
 
 /**
  * @brief Divides an NDArray by a scalar.
@@ -638,7 +638,7 @@ NDArray* array_scalar_mul(NDArray* lhs, f32 rhs);
  * NDArray* result = array_scalar_div(array, 5.0); // Divides each element by 5.0
  * @endcode
  */
-NDArray* array_scalar_div(NDArray* lhs, f32 rhs);
+NDArray* array_scalar_div(const NDArray* lhs, f32 rhs);
 
 /**
  * @brief Raises an NDArray to the power of a scalar.
@@ -650,14 +650,14 @@ NDArray* array_scalar_div(NDArray* lhs, f32 rhs);
  * NDArray* result = array_scalar_pow(array, 2.0); // Squares each element
  * @endcode
  */
-NDArray* array_scalar_pow(NDArray* lhs, f32 rhs);
+NDArray* array_scalar_pow(const NDArray* lhs, f32 rhs);
 
-NDArray* array_scalar_eq(NDArray* lhs, f32 rhs);
-NDArray* array_scalar_neq(NDArray* lhs, f32 rhs);
-NDArray* array_scalar_lt(NDArray* lhs, f32 rhs);
-NDArray* array_scalar_leq(NDArray* lhs, f32 rhs);
-NDArray* array_scalar_gt(NDArray* lhs, f32 rhs);
-NDArray* array_scalar_geq(NDArray* lhs, f32 rhs);
+NDArray* array_scalar_eq(const NDArray* lhs, f32 rhs);
+NDArray* array_scalar_neq(const NDArray* lhs, f32 rhs);
+NDArray* array_scalar_lt(const NDArray* lhs, f32 rhs);
+NDArray* array_scalar_leq(const NDArray* lhs, f32 rhs);
+NDArray* array_scalar_gt(const NDArray* lhs, f32 rhs);
+NDArray* array_scalar_geq(const NDArray* lhs, f32 rhs);
 
 // -------------------------------------------------------------------------------------------------
 // MATMUL
@@ -673,7 +673,7 @@ NDArray* array_scalar_geq(NDArray* lhs, f32 rhs);
  * NDArray* result = array_array_matmul(array1, array2); // Performs matrix multiplication
  * @endcode
  */
-NDArray* array_array_matmul(NDArray* lhs, NDArray* rhs);
+NDArray* array_array_matmul(const NDArray* lhs, const NDArray* rhs);
 
 // -------------------------------------------------------------------------------------------------
 // ARRAY-ARRAY OPERATIONS
@@ -690,7 +690,7 @@ NDArray* array_array_matmul(NDArray* lhs, NDArray* rhs);
  * NDArray* result = array_array_scalar_op(add, array1, array2); // Adds two arrays element-wise
  * @endcode
  */
-NDArray* array_array_scalar_op(binop fn, NDArray* lhs, NDArray* rhs);
+NDArray* array_array_scalar_op(binop fn, const NDArray* lhs, const NDArray* rhs);
 
 /**
  * @brief Adds two NDArrays element-wise.
@@ -702,7 +702,7 @@ NDArray* array_array_scalar_op(binop fn, NDArray* lhs, NDArray* rhs);
  * NDArray* result = array_array_sum(array1, array2); // Adds two arrays element-wise
  * @endcode
  */
-NDArray* array_array_sum(NDArray* lhs, NDArray* rhs);
+NDArray* array_array_sum(const NDArray* lhs, const NDArray* rhs);
 
 /**
  * @brief Subtracts two NDArrays element-wise.
@@ -714,7 +714,7 @@ NDArray* array_array_sum(NDArray* lhs, NDArray* rhs);
  * NDArray* result = array_array_sub(array1, array2); // Subtracts two arrays element-wise
  * @endcode
  */
-NDArray* array_array_sub(NDArray* lhs, NDArray* rhs);
+NDArray* array_array_sub(const NDArray* lhs, const NDArray* rhs);
 
 /**
  * @brief Multiplies two NDArrays element-wise.
@@ -726,7 +726,7 @@ NDArray* array_array_sub(NDArray* lhs, NDArray* rhs);
  * NDArray* result = array_array_mul(array1, array2); // Multiplies two arrays element-wise
  * @endcode
  */
-NDArray* array_array_mul(NDArray* lhs, NDArray* rhs);
+NDArray* array_array_mul(const NDArray* lhs, const NDArray* rhs);
 
 /**
  * @brief Divides two NDArrays element-wise.
@@ -738,7 +738,7 @@ NDArray* array_array_mul(NDArray* lhs, NDArray* rhs);
  * NDArray* result = array_array_div(array1, array2); // Divides two arrays element-wise
  * @endcode
  */
-NDArray* array_array_div(NDArray* lhs, NDArray* rhs);
+NDArray* array_array_div(const NDArray* lhs, const NDArray* rhs);
 
 /**
  * @brief Raises one NDArray to the power of another element-wise.
@@ -750,7 +750,7 @@ NDArray* array_array_div(NDArray* lhs, NDArray* rhs);
  * NDArray* result = array_array_pow(array1, array2); // Raises array1 to the power of array2
  * @endcode
  */
-NDArray* array_array_pow(NDArray* lhs, NDArray* rhs);
+NDArray* array_array_pow(const NDArray* lhs, const NDArray* rhs);
 
 /**
  * @brief Checks if two NDArrays are equal element-wise.
@@ -762,7 +762,7 @@ NDArray* array_array_pow(NDArray* lhs, NDArray* rhs);
  * NDArray* result = array_array_eq(array1, array2); // Checks for element-wise equality
  * @endcode
  */
-NDArray* array_array_eq(NDArray* lhs, NDArray* rhs);
+NDArray* array_array_eq(const NDArray* lhs, const NDArray* rhs);
 
 /**
  * @brief Checks if two NDArrays are not equal element-wise.
@@ -774,7 +774,7 @@ NDArray* array_array_eq(NDArray* lhs, NDArray* rhs);
  * NDArray* result = array_array_neq(array1, array2); // Checks for element-wise inequality
  * @endcode
  */
-NDArray* array_array_neq(NDArray* lhs, NDArray* rhs);
+NDArray* array_array_neq(const NDArray* lhs, const NDArray* rhs);
 
 /**
  * @brief Checks if the left-hand side NDArray is greater than the right-hand side element-wise.
@@ -786,7 +786,7 @@ NDArray* array_array_neq(NDArray* lhs, NDArray* rhs);
  * NDArray* result = array_array_gt(array1, array2); // Checks if array1 > array2 element-wise
  * @endcode
  */
-NDArray* array_array_gt(NDArray* lhs, NDArray* rhs);
+NDArray* array_array_gt(const NDArray* lhs, const NDArray* rhs);
 
 /**
  * @brief Checks if the left-hand side NDArray is greater than or equal to the right-hand side
@@ -799,7 +799,7 @@ NDArray* array_array_gt(NDArray* lhs, NDArray* rhs);
  * NDArray* result = array_array_geq(array1, array2); // Checks if array1 >= array2 element-wise
  * @endcode
  */
-NDArray* array_array_geq(NDArray* lhs, NDArray* rhs);
+NDArray* array_array_geq(const NDArray* lhs, const NDArray* rhs);
 
 /**
  * @brief Checks if the left-hand side NDArray is less than the right-hand side element-wise.
@@ -811,7 +811,7 @@ NDArray* array_array_geq(NDArray* lhs, NDArray* rhs);
  * NDArray* result = array_array_lt(array1, array2); // Checks if array1 < array2 element-wise
  * @endcode
  */
-NDArray* array_array_lt(NDArray* lhs, NDArray* rhs);
+NDArray* array_array_lt(const NDArray* lhs, const NDArray* rhs);
 
 /**
  * @brief Checks if the left-hand side NDArray is less than or equal to the right-hand side
@@ -824,7 +824,7 @@ NDArray* array_array_lt(NDArray* lhs, NDArray* rhs);
  * NDArray* result = array_array_leq(array1, array2); // Checks if array1 <= array2 element-wise
  * @endcode
  */
-NDArray* array_array_leq(NDArray* lhs, NDArray* rhs);
+NDArray* array_array_leq(const NDArray* lhs, const NDArray* rhs);
 
 // -------------------------------------------------------------------------------------------------
 // ELEMENTWISE OPERATIONS
@@ -836,7 +836,7 @@ NDArray* array_array_leq(NDArray* lhs, NDArray* rhs);
  * @param array Pointer to the NDArray.
  * @return Pointer to the resulting NDArray.
  */
-NDArray* array_op(uniop fn, NDArray* array);
+NDArray* array_op(uniop fn, const NDArray* array);
 
 /**
  * @brief Computes the natural logarithm of an NDArray element-wise.
@@ -847,7 +847,7 @@ NDArray* array_op(uniop fn, NDArray* array);
  * NDArray* result = array_log(array); // Computes the natural log of each element
  * @endcode
  */
-NDArray* array_log(NDArray* array);
+NDArray* array_log(const NDArray* array);
 
 /**
  * @brief Negates an NDArray element-wise.
@@ -858,7 +858,7 @@ NDArray* array_log(NDArray* array);
  * NDArray* result = array_neg(array); // Negates each element
  * @endcode
  */
-NDArray* array_neg(NDArray* array);
+NDArray* array_neg(const NDArray* array);
 
 /**
  * @brief Computes the exponential of an NDArray element-wise.
@@ -869,7 +869,7 @@ NDArray* array_neg(NDArray* array);
  * NDArray* result = array_exp(array); // Computes the exponential of each element
  * @endcode
  */
-NDArray* array_exp(NDArray* array);
+NDArray* array_exp(const NDArray* array);
 
 // -------------------------------------------------------------------------------------------------
 // REDUCTION OPERATIONS
@@ -885,7 +885,7 @@ NDArray* array_exp(NDArray* array);
  * NDArray* result = array_array_dot(array1, array2); // Computes the dot product
  * @endcode
  */
-NDArray* array_array_dot(NDArray* lhs, NDArray* rhs);
+NDArray* array_array_dot(const NDArray* lhs, const NDArray* rhs);
 
 /**
  * @brief Reduces an NDArray along specified dimensions using a binary operation.
@@ -903,7 +903,7 @@ NDArray* array_array_dot(NDArray* lhs, NDArray* rhs);
  */
 NDArray* array_reduce(
         binop acc_fn,
-        NDArray* src,
+        const NDArray* src,
         const size_t* reduce_dims,
         size_t reduce_ndim,
         f32 acc_init);
@@ -919,7 +919,7 @@ NDArray* array_reduce(
  * NDArray* result = array_reduce_max(array, reduce_dims, 1); // Finds the max along the first dim
  * @endcode
  */
-NDArray* array_reduce_max(NDArray* array, size_t* reduce_dims, size_t ndim);
+NDArray* array_reduce_max(const NDArray* array, const size_t* reduce_dims, size_t ndim);
 
 /**
  * @brief Computes the minimum value of an NDArray along specified dimensions.
@@ -933,7 +933,7 @@ NDArray* array_reduce_max(NDArray* array, size_t* reduce_dims, size_t ndim);
  * NDArray* result = array_reduce_min(array, reduce_dims, 1); // Finds the min along the first dim
  * @endcode
  */
-NDArray* array_reduce_min(NDArray* array, size_t* reduce_dims, size_t ndim);
+NDArray* array_reduce_min(const NDArray* array, const size_t* reduce_dims, size_t ndim);
 
 /**
  * @brief Computes the sum of an NDArray along specified dimensions.
@@ -947,7 +947,7 @@ NDArray* array_reduce_min(NDArray* array, size_t* reduce_dims, size_t ndim);
  * NDArray* result = array_reduce_sum(array, reduce_dims, 1); // Sums along the first dim
  * @endcode
  */
-NDArray* array_reduce_sum(NDArray* array, size_t* reduce_dims, size_t ndim);
+NDArray* array_reduce_sum(const NDArray* array, const size_t* reduce_dims, size_t ndim);
 
 // -------------------------------------------------------------------------------------------------
 // CONDITIONAL OPERATIONS
@@ -960,17 +960,17 @@ NDArray* array_reduce_sum(NDArray* array, size_t* reduce_dims, size_t ndim);
  * @param rhs Pointer to the on false NDArray.
  * @return Pointer to the resulting NDArray.
  */
-NDArray* array_array_array_where(NDArray* cond, NDArray* lhs, NDArray* rhs);
+NDArray* array_array_array_where(const NDArray* cond, const NDArray* lhs, const NDArray* rhs);
 
-NDArray* array_array_scalar_where(NDArray* cond, NDArray* lhs, f32 rhs);
-NDArray* array_scalar_array_where(NDArray* cond, f32 lhs, NDArray* rhs);
-NDArray* array_scalar_scalar_where(NDArray* cond, f32 lhs, f32 rhs);
+NDArray* array_array_scalar_where(const NDArray* cond, const NDArray* lhs, f32 rhs);
+NDArray* array_scalar_array_where(const NDArray* cond, f32 lhs, const NDArray* rhs);
+NDArray* array_scalar_scalar_where(const NDArray* cond, f32 lhs, f32 rhs);
 
 // -------------------------------------------------------------------------------------------------
 // JOIN OPERATIONS
 // -------------------------------------------------------------------------------------------------
 
-NDArray* array_cat(NDArray** arrays, size_t narray, size_t* dims, size_t ndim);
+NDArray* array_cat(const NDArray** arrays, size_t narray, const size_t* dims, size_t ndim);
 
 // END
 

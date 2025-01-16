@@ -393,7 +393,7 @@ void test_transpose() {
 void test_stack() {
     NDArray* lhs = array_zeros((size_t[]){2, 3}, 2);
     NDArray* rhs = array_ones((size_t[]){2, 5}, 2);
-    NDArray* arrays[] = {lhs, rhs};
+    const NDArray* arrays[] = {lhs, rhs};
     NDArray* out = array_cat(arrays, 2, (size_t[]){1}, 1);
     FREE(lhs);
     FREE(rhs);
