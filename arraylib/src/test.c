@@ -395,15 +395,76 @@ void test_stack() {
     NDArray* rhs = array_ones((size_t[]){2, 5}, 2);
     NDArray* arrays[] = {lhs, rhs};
     NDArray* out = array_cat(arrays, 2, (size_t[]){1}, 1);
-
-    NDIter* iter = iter_create(out->ptr, out->lay);
-    printf("shape: %zu, %zu\n", out->lay->shape[0], out->lay->shape[1]);
-    // while (iter_next(iter))
-    //     printf("index[%zu, %zu]=%f\n", iter->index[0], iter->index[1], *iter->ptr);
-
     FREE(lhs);
     FREE(rhs);
     FREE(out);
+}
+
+void test_layout_broadcast_multiple() {
+    // 3x2x4 => 3x2x4
+    //     4 => 3x2x4
+    //   2x4 => 3x2x4
+    // 3x1x1 => 3x2x4
+
+    Layout* lay1 = layout_alloc(3);
+    lay1->shape[0] = 3, lay1->shape[1] = 2, lay1->shape[2] = 4;
+    lay1->stride[0] = 8, lay1->stride[1] = 4, lay1->stride[2] = 1;
+
+    Layout* lay2 = layout_alloc(1);
+    lay2->shape[0] = 4;
+    lay2->stride[0] = 1;
+
+    Layout* lay3 = layout_alloc(2);
+    lay3->shape[0] = 2, lay3->shape[1] = 4;
+    lay3->stride[0] = 4, lay3->stride[1] = 1;
+
+    Layout* lay4 = layout_alloc(3);
+    lay4->shape[0] = 3, lay4->shape[1] = 1, lay4->shape[2] = 1;
+    lay4->stride[0] = 1, lay4->stride[1] = 1, lay4->stride[2] = 1;
+
+    const Layout* layouts[] = {lay1, lay2, lay3, lay4};
+    Layout** blays = layout_broadcast(layouts, 4);
+
+    assert(blays[0]->ndim == 3);
+    assert(blays[0]->shape[0] == 3);
+    assert(blays[0]->shape[1] == 2);
+    assert(blays[0]->shape[2] == 4);
+    assert(blays[0]->stride[0] == 8);
+    assert(blays[0]->stride[1] == 4);
+    assert(blays[0]->stride[2] == 1);
+
+    assert(blays[1]->ndim == 3);
+    assert(blays[1]->shape[0] == 3);
+    assert(blays[1]->shape[1] == 2);
+    assert(blays[1]->shape[2] == 4);
+    assert(blays[1]->stride[0] == 0);
+    assert(blays[1]->stride[1] == 0);
+    assert(blays[1]->stride[2] == 1);
+
+    assert(blays[2]->ndim == 3);
+    assert(blays[2]->shape[0] == 3);
+    assert(blays[2]->shape[1] == 2);
+    assert(blays[2]->shape[2] == 4);
+    assert(blays[2]->stride[0] == 0);
+    assert(blays[2]->stride[1] == 4);
+    assert(blays[2]->stride[2] == 1);
+
+    assert(blays[3]->ndim == 3);
+    assert(blays[3]->shape[0] == 3);
+    assert(blays[3]->shape[1] == 2);
+    assert(blays[3]->shape[2] == 4);
+    assert(blays[3]->stride[0] == 1);
+    assert(blays[3]->stride[1] == 0);
+    assert(blays[3]->stride[2] == 0);
+
+    layout_free(lay1);
+    layout_free(lay2);
+    layout_free(lay3);
+    layout_free(lay4);
+    for (size_t i = 0; i < 4; i++) {
+        layout_free(blays[i]);
+    }
+    free(blays);
 }
 
 int main() {
@@ -427,6 +488,7 @@ int main() {
     test_transpose();
     test_dimension_mismatch();
     test_stack();
+    test_layout_broadcast_multiple();
     assert(assertion_failures == 2);
 
     printf("tests passed %d.", assertion_failures);

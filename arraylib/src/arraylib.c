@@ -158,6 +158,34 @@ bool is_broadcastable(const Layout* lhs, const Layout* rhs) {
     return true;
 }
 
+Layout** layout_broadcast(const Layout** lays, size_t nlay) {
+    size_t max_ndim = lays[0]->ndim;
+    for (size_t i = 1; i < nlay; i++)
+        max_ndim = max_ndim < lays[i]->ndim ? lays[i]->ndim : max_ndim;
+
+    Layout** blays = (Layout**)alloc(sizeof(Layout*) * nlay);
+    for (size_t i = 0; i < nlay; i++)
+        blays[i] = layout_alloc(max_ndim);
+
+    for (size_t i = 0; i < max_ndim; i++) {
+        size_t oi = (max_ndim - i - 1);
+        size_t index_i[nlay];
+        size_t shape_i[nlay];
+        size_t max_shape_i = 0;
+        for (size_t j = 0; j < nlay; j++) {
+            index_i[j] = (i < lays[j]->ndim) ? (lays[j]->ndim - i - 1) : SIZE_MAX;
+            shape_i[j] = (index_i[j] == SIZE_MAX) ? 1 : lays[j]->shape[index_i[j]];
+            max_shape_i = max_shape_i < shape_i[j] ? shape_i[j] : max_shape_i;
+        }
+        for (size_t j = 0; j < nlay; j++) {
+            blays[j]->shape[oi] = max_shape_i;
+            bool is_broadcasted = (index_i[j] == SIZE_MAX || shape_i[j] != max_shape_i);
+            blays[j]->stride[oi] = is_broadcasted ? 0 : lays[j]->stride[index_i[j]];
+        }
+    }
+    return blays;
+}
+
 // -------------------------------------------------------------------------------------------------
 // ARRAY CREATION AND DESTRUCTION
 // -------------------------------------------------------------------------------------------------
@@ -556,21 +584,11 @@ NDArray* array_array_matmul(NDArray* lhs, NDArray* rhs) {
 
 NDArray* array_array_scalar_op(binop fn, NDArray* lhs, NDArray* rhs) {
     assert(is_broadcastable(lhs->lay, rhs->lay) && "ValueError: can not broadcast.");
-    size_t max_ndim = lhs->lay->ndim > rhs->lay->ndim ? lhs->lay->ndim : rhs->lay->ndim;
-    Layout* lhs_blay = layout_alloc(max_ndim);
-    Layout* rhs_blay = layout_alloc(max_ndim);
+    const Layout* lays[2] = {lhs->lay, rhs->lay};
+    Layout** blays = layout_broadcast(lays, 2);
+    Layout* lhs_blay = blays[0];
+    Layout* rhs_blay = blays[1];
 
-    for (size_t i = 0; i < max_ndim; i++) {
-        size_t oi = (max_ndim - i - 1);
-        size_t li = (i < lhs->lay->ndim) ? lhs->lay->ndim - i - 1 : SIZE_MAX;
-        size_t ri = (i < rhs->lay->ndim) ? rhs->lay->ndim - i - 1 : SIZE_MAX;
-        size_t lsi = (li == SIZE_MAX) ? 1 : lhs->lay->shape[li];
-        size_t rsi = (ri == SIZE_MAX) ? 1 : rhs->lay->shape[ri];
-        size_t max_shape = lsi > rsi ? lsi : rsi;
-        lhs_blay->shape[oi] = rhs_blay->shape[oi] = max_shape;
-        lhs_blay->stride[oi] = (li >= 0 && lsi == max_shape) ? lhs->lay->stride[li] : 0;
-        rhs_blay->stride[oi] = (ri >= 0 && rsi == max_shape) ? rhs->lay->stride[ri] : 0;
-    }
     NDArray* out = array_empty(lhs_blay->shape, lhs_blay->ndim);
     NDIter* ilhs = iter_create(lhs->ptr, lhs_blay);
     NDIter* irhs = iter_create(rhs->ptr, rhs_blay);
@@ -584,6 +602,7 @@ NDArray* array_array_scalar_op(binop fn, NDArray* lhs, NDArray* rhs) {
     FREE(iout);
     FREE(lhs_blay);
     FREE(rhs_blay);
+    FREE(blays);
     return out;
 }
 
