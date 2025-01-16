@@ -255,6 +255,7 @@ Layout* layout_alloc(size_t ndim);
 Layout* layout_copy(const Layout* src);
 
 void layout_free(Layout* lay);
+Layout** layout_broadcast(const Layout** lays, size_t nlay);
 
 // -------------------------------------------------------------------------------------------------
 // ARRAY CREATION AND DESTRUCTION
