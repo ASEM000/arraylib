@@ -295,23 +295,24 @@ def test_reduce():
 
 def test_where():
     # array-array-array
-    a_al = al.arange(1, 1 + 3 * 4 * 5 * 6)
-    a_al = al.reshape(a_al, (3, 4, 5, 6))
+    a_al = al.arange(1, 1 + 3 * 4 * 5 * 6).reshape((3, 4, 5, 6))
     a_np = np.arange(1, 1 + 3 * 4 * 5 * 6).reshape(3, 4, 5, 6)
     cond = al.lt(a_al, 10.0)
+    a_al - 10.0
+    a_al + 10.0
     b_al = al.where(cond, a_al - 10.0, a_al + 10.0)
     b_np = np.where(a_np < 10.0, a_np - 10.0, a_np + 10.0)
     assert_array_equal(b_al, b_np)
 
-    # # array-array-scalar
-    # b_al = al.where(cond, a_al - 10.0, 10.0)
-    # b_np = np.where(a_np < 10.0, a_np - 10.0, 10.0)
-    # assert_array_equal(b_al, b_np)
+    # array-array-scalar
+    b_al = al.where(cond, a_al - 10.0, 10.0)
+    b_np = np.where(a_np < 10.0, a_np - 10.0, 10.0)
+    assert_array_equal(b_al, b_np)
 
-    # # array-scalar-array
-    # b_al = al.where(cond, 10.0, a_al - 10.0)
-    # b_np = np.where(a_np < 10.0, 10.0, a_np - 10.0)
-    # assert_array_equal(b_al, b_np)
+    # array-scalar-array
+    b_al = al.where(cond, 10.0, a_al - 10.0)
+    b_np = np.where(a_np < 10.0, 10.0, a_np - 10.0)
+    assert_array_equal(b_al, b_np)
 
 
 @pytest.mark.parametrize(

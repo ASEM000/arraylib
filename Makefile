@@ -1,6 +1,6 @@
 # Compiler and flags
 CC = gcc
-CFLAGS = -Wall -fPIC -O3
+CFLAGS = -Wall -fPIC -O3 -march=native -funroll-loops -finline-functions
 
 # Target shared library
 TARGET = arraylib/src/arraylib.so
@@ -20,7 +20,7 @@ TEST_SOURCES = $(wildcard $(TEST_DIR)/test*.c)
 TEST_TARGETS = $(patsubst $(TEST_DIR)/%.c, %, $(TEST_SOURCES))
 
 # Default target
-all: shared docs
+all: shared
 
 # Build the shared library
 shared: $(SOURCES)

@@ -92,26 +92,6 @@ inline size_t offset_indexer(size_t index, const Layout* lay) {
 }
 
 // -------------------------------------------------------------------------------------------------
-// BINARY FUNCTIONS
-// -------------------------------------------------------------------------------------------------
-
-static inline f32 sum32(f32 lhs, f32 rhs) { return lhs + rhs; }
-static inline f32 sub32(f32 lhs, f32 rhs) { return lhs - rhs; }
-static inline f32 mul32(f32 lhs, f32 rhs) { return lhs * rhs; }
-static inline f32 div32(f32 lhs, f32 rhs) { return (f32)lhs / rhs; }
-static inline f32 pow32(f32 lhs, f32 rhs) { return powf(lhs, rhs); }
-
-static inline f32 eq32(f32 lhs, f32 rhs) { return lhs == rhs ? true : false; }
-static inline f32 neq32(f32 lhs, f32 rhs) { return lhs != rhs ? true : false; }
-static inline f32 geq32(f32 lhs, f32 rhs) { return lhs >= rhs ? true : false; }
-static inline f32 leq32(f32 lhs, f32 rhs) { return lhs <= rhs ? true : false; }
-static inline f32 gt32(f32 lhs, f32 rhs) { return lhs > rhs ? true : false; }
-static inline f32 lt32(f32 lhs, f32 rhs) { return lhs < rhs ? true : false; }
-
-static inline f32 max32(f32 lhs, f32 rhs) { return lhs > rhs ? lhs : rhs; }
-static inline f32 min32(f32 lhs, f32 rhs) { return lhs < rhs ? lhs : rhs; }
-
-// -------------------------------------------------------------------------------------------------
 // DATA
 // -------------------------------------------------------------------------------------------------
 
@@ -137,11 +117,10 @@ Layout* layout_alloc(size_t ndim) {
     return lay;
 }
 
-Layout* layout_copy(const Layout* src) {
-    Layout* dst = (Layout*)alloc(sizeof(Layout));
+Layout* layout_copy(Layout* dst, const Layout* src) {
     dst->ndim = src->ndim;
-    dst->shape = size_t_copy(size_t_alloc(src->ndim), src->shape, src->ndim);
-    dst->stride = size_t_copy(size_t_alloc(src->ndim), src->stride, src->ndim);
+    dst->shape = size_t_copy(dst->shape, src->shape, src->ndim);
+    dst->stride = size_t_copy(dst->stride, src->stride, src->ndim);
     return dst;
 }
 
@@ -228,7 +207,7 @@ NDArray* array_shallow_copy(const NDArray* src) {
     assert(src != NULL && "TypeError: shallow copy of NULL.");
     NDArray* dst = (NDArray*)alloc(sizeof(NDArray));
     dst->ptr = src->ptr;
-    dst->lay = layout_copy(src->lay);
+    dst->lay = layout_copy(layout_alloc(src->lay->ndim), src->lay);
     dst->data = src->data;
     src->data->refs++;
     dst->view = true;
@@ -279,13 +258,13 @@ NDArray* array_arange(f32 start, f32 end, f32 step) {
     size_t running = start;
     for (size_t i = 0; i < total; i++) {
         out_array->data->mem[i] = running;
-        running = sum32(running, step);
+        running = (running + step);
     }
     return out_array;
 }
 
 NDArray* array_linspace(f32 start, f32 end, f32 n) {
-    f32 dx = div32((end - start), n - 1);
+    f32 dx = (end - start) / (n - 1);
     NDArray* out_array = array_arange(0, n, 1);
     for (size_t i = 0; i < out_array->data->size; i++)
         out_array->ptr[i] = start + out_array->ptr[i] * dx;
@@ -406,7 +385,7 @@ NDArray* array_reshape(const NDArray* src, const size_t* shape, size_t ndim) {
 NDArray* array_transpose(const NDArray* src, const size_t* dims) {
     NDArray* dst = is_contiguous(src->lay) ? array_shallow_copy(src) : array_deep_copy(src);
     size_t ndim = src->lay->ndim;
-    Layout* original_layout = layout_copy(src->lay);
+    Layout* original_layout = layout_copy(layout_alloc(src->lay->ndim), src->lay);
     for (size_t i = 0; i < ndim; i++) {
         dst->lay->shape[i] = original_layout->shape[dims[i]];
         dst->lay->stride[i] = original_layout->stride[dims[i]];
@@ -465,7 +444,7 @@ NDArray* array_ravel(const NDArray* src) {
 NDArray* array_scalar_op(binop fn, const NDArray* src, f32 rhs) {
     NDArray* dst = array_empty(src->lay->shape, src->lay->ndim);
     size_t size = prod(src->lay->shape, src->lay->ndim);
-#pragma omp parallel for
+    // #pragma omp parallel for
     for (size_t i = 0; i < size; i++) {
         size_t doffset = offset_indexer(i, dst->lay);
         size_t soffset = offset_indexer(i, src->lay);
@@ -473,19 +452,6 @@ NDArray* array_scalar_op(binop fn, const NDArray* src, f32 rhs) {
     }
     return dst;
 }
-
-NDArray* array_scalar_add(const NDArray* lhs, f32 rhs) { return array_scalar_op(sum32, lhs, rhs); }
-NDArray* array_scalar_sub(const NDArray* lhs, f32 rhs) { return array_scalar_op(sub32, lhs, rhs); }
-NDArray* array_scalar_mul(const NDArray* lhs, f32 rhs) { return array_scalar_op(mul32, lhs, rhs); }
-NDArray* array_scalar_div(const NDArray* lhs, f32 rhs) { return array_scalar_op(div32, lhs, rhs); }
-NDArray* array_scalar_pow(const NDArray* lhs, f32 rhs) { return array_scalar_op(pow32, lhs, rhs); }
-
-NDArray* array_scalar_eq(const NDArray* lhs, f32 rhs) { return array_scalar_op(eq32, lhs, rhs); }
-NDArray* array_scalar_neq(const NDArray* lhs, f32 rhs) { return array_scalar_op(neq32, lhs, rhs); }
-NDArray* array_scalar_lt(const NDArray* lhs, f32 rhs) { return array_scalar_op(lt32, lhs, rhs); }
-NDArray* array_scalar_leq(const NDArray* lhs, f32 rhs) { return array_scalar_op(leq32, lhs, rhs); }
-NDArray* array_scalar_gt(const NDArray* lhs, f32 rhs) { return array_scalar_op(gt32, lhs, rhs); }
-NDArray* array_scalar_geq(const NDArray* lhs, f32 rhs) { return array_scalar_op(geq32, lhs, rhs); }
 
 // -------------------------------------------------------------------------------------------------
 // MATMUL
@@ -523,9 +489,9 @@ NDArray* array_array_matmul(const NDArray* lhs, const NDArray* rhs) {
                         f32 lhs_val = plhs[i * lhs_s0 + k * lhs_s1];
                         for (size_t j = j0; j < jmax; j++) {
                             f32 rhs_val = prhs[k * rhs_s0 + j * rhs_s1];
-                            f32 res_val = mul32(lhs_val, rhs_val);
+                            f32 res_val = (lhs_val * rhs_val);
                             f32 out_val = pout[i * out_s0 + j * out_s1];
-                            pout[i * out_s0 + j * out_s1] = sum32(out_val, res_val);
+                            pout[i * out_s0 + j * out_s1] = (out_val + res_val);
                         }
                     }
                 }
@@ -560,49 +526,9 @@ NDArray* array_array_scalar_op(binop fn, const NDArray* lhs, const NDArray* rhs)
     return out;
 }
 
-NDArray* array_array_sum(const NDArray* lhs, const NDArray* rhs) {
-    return array_array_scalar_op(sum32, lhs, rhs);
-}
-NDArray* array_array_sub(const NDArray* lhs, const NDArray* rhs) {
-    return array_array_scalar_op(sub32, lhs, rhs);
-}
-NDArray* array_array_mul(const NDArray* lhs, const NDArray* rhs) {
-    return array_array_scalar_op(mul32, lhs, rhs);
-}
-NDArray* array_array_div(const NDArray* lhs, const NDArray* rhs) {
-    return array_array_scalar_op(div32, lhs, rhs);
-}
-NDArray* array_array_pow(const NDArray* lhs, const NDArray* rhs) {
-    return array_array_scalar_op(pow32, lhs, rhs);
-}
-
-// comparison
-NDArray* array_array_eq(const NDArray* lhs, const NDArray* rhs) {
-    return array_array_scalar_op(eq32, lhs, rhs);
-}
-NDArray* array_array_neq(const NDArray* lhs, const NDArray* rhs) {
-    return array_array_scalar_op(neq32, lhs, rhs);
-}
-NDArray* array_array_gt(const NDArray* lhs, const NDArray* rhs) {
-    return array_array_scalar_op(gt32, lhs, rhs);
-}
-NDArray* array_array_geq(const NDArray* lhs, const NDArray* rhs) {
-    return array_array_scalar_op(geq32, lhs, rhs);
-}
-NDArray* array_array_lt(const NDArray* lhs, const NDArray* rhs) {
-    return array_array_scalar_op(lt32, lhs, rhs);
-}
-NDArray* array_array_leq(const NDArray* lhs, const NDArray* rhs) {
-    return array_array_scalar_op(leq32, lhs, rhs);
-}
-
 // -------------------------------------------------------------------------------------------------
 // ELEMENTWISE OPERATIONS
 // -------------------------------------------------------------------------------------------------
-
-static inline f32 log32(f32 lhs) { return lhs == 0 ? 0 : logf(lhs); }
-static inline f32 neg32(f32 lhs) { return -lhs; }
-static inline f32 exp32(f32 lhs) { return expf(lhs); }
 
 NDArray* array_op(uniop fn, const NDArray* src) {
     NDArray* dst = array_empty(src->lay->shape, src->lay->ndim);
@@ -612,10 +538,6 @@ NDArray* array_op(uniop fn, const NDArray* src) {
         dst->ptr[i] = fn(src->ptr[offset_indexer(i, src->lay)]);
     return dst;
 }
-
-NDArray* array_log(const NDArray* array) { return array_op(log32, array); }
-NDArray* array_neg(const NDArray* array) { return array_op(neg32, array); }
-NDArray* array_exp(const NDArray* array) { return array_op(exp32, array); }
 
 // -------------------------------------------------------------------------------------------------
 // REDUCTION OPERATIONS
@@ -632,7 +554,7 @@ NDArray* array_array_dot(const NDArray* lhs, const NDArray* rhs) {
     for (size_t i = 0; i < size; i++) {
         f32 lval = lhs->ptr[offset_indexer(i, lhs->lay)];  // NOTE: stick to function call
         f32 rval = rhs->ptr[offset_indexer(i, rhs->lay)];
-        acc = sum32(acc, mul32(lval, rval));
+        acc += (lval * rval);
     }
 
     NDArray* out = array_empty((size_t[]){1}, 1);
@@ -663,7 +585,7 @@ NDArray* array_reduce(
 
     // NOTE: moving from src offset to dst offset simply zeros-out
     // any movement along reduced axes by setting stride=0.
-    Layout* src_to_dst_layout = layout_copy(src->lay);
+    Layout* src_to_dst_layout = layout_copy(layout_alloc(src->lay->ndim), src->lay);
 
     size_t dst_size = prod(dst->lay->shape, dst->lay->ndim);
     size_t src_size = prod(src->lay->shape, src->lay->ndim);
@@ -705,18 +627,6 @@ NDArray* array_reduce(
     }
 
     return dst;
-}
-
-NDArray* array_reduce_max(const NDArray* array, const size_t* reduce_dims, size_t ndim) {
-    return array_reduce(max32, array, reduce_dims, ndim, -INFINITY);
-}
-
-NDArray* array_reduce_min(const NDArray* array, const size_t* reduce_dims, size_t ndim) {
-    return array_reduce(min32, array, reduce_dims, ndim, INFINITY);
-}
-
-NDArray* array_reduce_sum(const NDArray* array, const size_t* reduce_dims, size_t ndim) {
-    return array_reduce(sum32, array, reduce_dims, ndim, 0);
 }
 
 // -------------------------------------------------------------------------------------------------
