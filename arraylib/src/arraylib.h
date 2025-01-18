@@ -8,7 +8,7 @@
 #ifndef ARRAYLIB_H
 #define ARRAYLIB_H
 
-#define BLOCK_SIZE 32
+#define BLOCK_SIZE 128
 
 #include <assert.h>
 #include <math.h>
@@ -18,16 +18,14 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+#ifdef _OMP_H
+#include <omp.h>
+#endif
+
 #define ITERDIM SIZE_MAX
 
-#define FREE(ptr)                  \
-    _Generic(                      \
-            (ptr),                 \
-            NDArray *: array_free, \
-            NDIter *: iter_free,   \
-            Layout *: layout_free, \
-            default: free)(ptr)
-
+#define FREE(ptr) _Generic((ptr), NDArray *: array_free, Layout *: layout_free, default: free)(ptr)
 // START
 
 // -------------------------------------------------------------------------------------------------
@@ -64,9 +62,9 @@ typedef struct {
 } Data;
 
 typedef struct {
+    size_t ndim;    /**< Number of dimension of data. */
     size_t* shape;  /**< Shape of data. */
     size_t* stride; /**< Stride of data. */
-    size_t ndim;    /**< Number of dimension of data. */
 } Layout;
 
 /**
@@ -78,13 +76,6 @@ typedef struct {
     Layout* lay; /**< Memory layout (shape, stride). */
     bool view;   /**< Flag indicating if this is a view. */
 } NDArray;
-
-typedef struct {
-    f32* ptr;      /**< Pointer to the current element. */
-    Layout* lay;   /**< Pointer to the memory layout (shape, stride). */
-    size_t* index; /**< Current index in the iteration. */
-    enum { ITER_START, ITER_RUN, ITER_END } status; /**< Status of the iterator. */
-} NDIter;
 
 // -------------------------------------------------------------------------------------------------
 // FUNCTION DECLARATIONS
@@ -110,74 +101,6 @@ void* alloc(size_t size);
 // -------------------------------------------------------------------------------------------------
 
 /**
- * @brief Computes the product of an array of numbers.
- * @param nums Array of numbers.
- * @param ndim Number of dimensions.
- * @return Product of the numbers.
- *
- * @code
- * size_t nums[] = {2, 3, 4};
- * size_t result = prod(nums, 3); // result = 24
- * @endcode
- */
-size_t prod(const size_t* nums, size_t ndim);
-
-/**
- * @brief Creates an array of size_t with the given number of dimensions.
- * @param ndim Number of dimensions.
- * @return Pointer to the created array.
- *
- * @code
- * size_t* arr = size_t_alloc(3); // Creates an array of size 3
- * @endcode
- */
-size_t* size_t_alloc(size_t ndim);
-
-/**
- * @brief Sets all elements of an array to a given value.
- * @param dst Destination array.
- * @param value Value to set.
- * @param size Size of the array.
- * @return Pointer to the destination array.
- *
- * @code
- * size_t arr[3];
- * size_t_set(arr, 5, 3); // arr = {5, 5, 5}
- * @endcode
- */
-size_t* size_t_set(size_t* dst, size_t value, size_t size);
-
-/**
- * @brief Copies the contents of one array to another.
- * @param dst Destination array.
- * @param src Source array.
- * @param size Size of the arrays.
- * @return Pointer to the destination array.
- *
- * @code
- * size_t src[] = {1, 2, 3};
- * size_t dst[3];
- * size_t_copy(dst, src, 3); // dst = {1, 2, 3}
- * @endcode
- */
-size_t* size_t_copy(size_t* dst, const size_t* src, size_t size);
-
-/**
- * @brief Computes the flat index from a multi-dimensional index.
- * @param index Multi-dimensional index.
- * @param stride Strides for each dimension.
- * @param ndim Number of dimensions.
- * @return Flat index.
- *
- * @code
- * size_t index[] = {1, 1};
- * size_t stride[] = {3, 1};
- * size_t flat_idx = compute_flat_index(index, stride, 2); // flat_idx = 4
- * @endcode
- */
-size_t compute_flat_index(const size_t* index, const size_t* stride, size_t ndim);
-
-/**
  * @brief Clamps a value between a minimum and maximum.
  * @param value Value to clamp.
  * @param minval Minimum value.
@@ -189,47 +112,6 @@ size_t compute_flat_index(const size_t* index, const size_t* stride, size_t ndim
  * @endcode
  */
 f32 clamp(f32 value, f32 minval, f32 maxval);
-
-/**
- * @brief Checks if an array is contiguous in memory.
- * @param array Array to check.
- * @return True if the array is contiguous, false otherwise.
- *
- * @code
- * NDArray* array = array_zeros((size_t[]){2, 2}, 2);
- * bool contiguous = is_contiguous(array); // contiguous = true
- * @endcode
- */
-bool is_contiguous(const NDArray* array);
-
-bool is_broadcastable(const Layout* lhs, const Layout* rhs);
-
-/**
- * @brief Computes the ceiling division of two numbers.
- * @param a Dividend.
- * @param b Divisor.
- * @return Ceiling division result.
- *
- * @code
- * size_t result = cdiv(10, 3); // result = 4
- * @endcode
- */
-size_t cdiv(size_t a, size_t b);
-
-/**
- * @brief Computes the strides for an array given its shape.
- * @param dst Destination array for strides.
- * @param shape Shape of the array.
- * @param ndim Number of dimensions.
- * @return Pointer to the destination array.
- *
- * @code
- * size_t shape[] = {2, 3};
- * size_t strides[2];
- * compute_stride(strides, shape, 2); // strides = {3, 1}
- * @endcode
- */
-size_t* compute_stride(size_t* dst, const size_t* shape, const size_t ndim);
 
 // -------------------------------------------------------------------------------------------------
 // DATA
@@ -284,50 +166,6 @@ NDArray* array_empty(const size_t* shape, size_t ndim);
  * @endcode
  */
 void array_free(NDArray* array);
-
-// -------------------------------------------------------------------------------------------------
-// ITERATOR
-// -------------------------------------------------------------------------------------------------
-
-/**
- * @brief Creates an iterator for an NDArray.
- * @param ptr Pointer to the data.
- * @param lay Data layout (shape+stride).
- * @param specs Dimension spec.
- * @return Pointer to the created iterator.
- *
- * @code
- * NDArray* array = array_zeros((size_t[]){2, 2}, 2);
- * NDIter iter = iter_create(array->data->mem, array->shape, array->stride, array->bstride, 2,
- * ITERALL);
- * @endcode
- */
-NDIter* iter_create(f32* ptr, const Layout* lay);
-
-/**
- * @brief Frees the memory allocated for an iterator.
- * @param iterator Pointer to the iterator to free.
- *
- * @code
- * NDIter iter = iter_array(array);
- * iter_free(&iter); // Frees the iterator
- * @endcode
- */
-void iter_free(NDIter* iterator);
-
-/**
- * @brief Advances the iterator to the next element.
- * @param iter Pointer to the iterator.
- * @return True if the iterator has more elements, false otherwise.
- *
- * @code
- * NDIter iter = iter_array(array);
- * while (iter_next(iter)) {
- *     printf("%f ", *iter.ptr); // Prints each element
- * }
- * @endcode
- */
-bool iter_next(NDIter* iter);
 
 // -------------------------------------------------------------------------------------------------
 // COPY

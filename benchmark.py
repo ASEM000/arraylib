@@ -4,6 +4,7 @@ import arraylib as al
 
 N = 50
 
+
 def timeit(func, *args, **kwargs):
     start_time = time.time()
     for _ in range(N):
@@ -33,6 +34,12 @@ if __name__ == "__main__":
     print(f"al array element-wise addition time: {al_time:.6f} seconds")
     print(f"np array element-wise addition time: {np_time:.6f} seconds")
 
+    print("\nbenchmarking array-array addition...")
+    al_time, _ = timeit(lambda: al_array + al_array)
+    np_time, _ = timeit(lambda: np_array + np_array)
+    print(f"al array element-wise addition time: {al_time:.6f} seconds")
+    print(f"np array element-wise addition time: {np_time:.6f} seconds")
+
     print("\nbenchmarking matrix multiplication...")
     al_time, _ = timeit(al.matmul, al_array, al_array)
     np_time, _ = timeit(np.matmul, np_array, np_array)
@@ -41,17 +48,17 @@ if __name__ == "__main__":
 
     print("\nbenchmarking reduction operations...")
 
-    al_time, _ = timeit(al.reduce_sum, al_array, axis=(0,))
+    al_time, _ = timeit(al.reduce_sum, al_array, dims=(0,))
     np_time, _ = timeit(np.sum, np_array, axis=(0,))
     print(f"al array sum reduction time: {al_time:.6f} seconds")
     print(f"np array sum reduction time: {np_time:.6f} seconds")
 
-    al_time, _ = timeit(al.reduce_max, al_array, axis=(0,))
+    al_time, _ = timeit(al.reduce_max, al_array, dims=(0,))
     np_time, _ = timeit(np.max, np_array, axis=(0,))
     print(f"al array max reduction time: {al_time:.6f} seconds")
     print(f"np array max reduction time: {np_time:.6f} seconds")
 
-    al_time, _ = timeit(al.reduce_min, al_array, axis=(0,))
+    al_time, _ = timeit(al.reduce_min, al_array, dims=(0,))
     np_time, _ = timeit(np.min, np_array, axis=(0,))
     print(f"al array min reduction time: {al_time:.6f} seconds")
     print(f"np array min reduction time: {np_time:.6f} seconds")
