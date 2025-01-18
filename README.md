@@ -27,3 +27,5 @@ a = (
 # broadcasting
 b = al.ones([3, 6]) + al.ones([6]) + al.ones([4, 3, 1]) + 1.0
 ```
+
+NOTE: `omp` is supported if compiled with the appropriate flags with `gcc` or `clang`.
