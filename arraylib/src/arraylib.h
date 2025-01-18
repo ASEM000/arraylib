@@ -19,18 +19,13 @@
 #include <stdlib.h>
 #include <string.h>
 
-#ifndef _OMP_H
+#ifdef _OMP_H
 #include <omp.h>
 #endif
 
 #define ITERDIM SIZE_MAX
 
-#define FREE(ptr)                  \
-    _Generic(                      \
-            (ptr),                 \
-            NDArray *: array_free, \
-            Layout *: layout_free, \
-            default: free)(ptr)
+#define FREE(ptr) _Generic((ptr), NDArray *: array_free, Layout *: layout_free, default: free)(ptr)
 // START
 
 // -------------------------------------------------------------------------------------------------
@@ -117,21 +112,6 @@ void* alloc(size_t size);
  * @endcode
  */
 f32 clamp(f32 value, f32 minval, f32 maxval);
-
-/**
- * @brief Computes the strides for an array given its shape.
- * @param dst Destination array for strides.
- * @param shape Shape of the array.
- * @param ndim Number of dimensions.
- * @return Pointer to the destination array.
- *
- * @code
- * size_t shape[] = {2, 3};
- * size_t strides[2];
- * compute_stride(strides, shape, 2); // strides = {3, 1}
- * @endcode
- */
-size_t* compute_stride(size_t* dst, const size_t* shape, const size_t ndim);
 
 // -------------------------------------------------------------------------------------------------
 // DATA
