@@ -296,6 +296,10 @@ NDArray* array_linspace(f32 start, f32 end, f32 n) {
 // GETTERS
 // -------------------------------------------------------------------------------------------------
 
+f32 array_get_scalar_from_index(const NDArray* array, const size_t* index) {
+    return array->ptr[index_offset(index_flatten(index, array->lay), array->lay)];
+}
+
 NDArray* array_get_view_from_range(
         const NDArray* src,
         const size_t* start,
@@ -325,6 +329,10 @@ NDArray* array_get_view_from_range(
 // SETTERS
 // -------------------------------------------------------------------------------------------------
 
+NDArray* array_set_scalar_from_index(NDArray* array, f32 value, const size_t* index) {
+    array->ptr[index_flatten(index, array->lay)] = value;
+    return array;
+}
 NDArray* array_set_scalar_from_range(
         NDArray* dst,
         f32 value,
