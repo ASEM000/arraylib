@@ -38,6 +38,13 @@ lib = ffi.dlopen(os.path.join(Path(__file__).parent, "src", "arraylib.so"))
 ## -------------------------------------------------------------------------------------------------
 
 
+@dc.dataclass
+class Layout:
+    shape: tuple[int, ...]
+    stride: tuple[int, ...]
+    ndim: int
+
+
 class NDArray:
     """Multi-dimensional array"""
 
@@ -59,6 +66,10 @@ class NDArray:
     @property
     def view(self) -> bool:
         return self.buffer.view
+
+    @property
+    def layout(self) -> Layout:
+        return Layout(self.shape, self.stride, self.ndim)
 
     @property
     def ndim(self) -> int:
@@ -195,7 +206,7 @@ def normalize_index(index: tp.Sequence[tp.Any] | int) -> tp.TypeGuard[tuple[tp.A
     return tuple(index) if isinstance(index, tp.Sequence) else (index,)
 
 
-def can_broadcast(lhs: Layout, rhs: Layout) -> bool:
+def is_broadcastable(lhs: Layout, rhs: Layout) -> bool:
     li = lhs.ndim - 1
     ri = rhs.ndim - 1
     while li >= 0 and ri >= 0:
@@ -339,7 +350,7 @@ def generate_binary_op(op):
 
     def fn(lhs, rhs):
         if isinstance(lhs, NDArray) and isinstance(rhs, NDArray):
-            assert can_broadcast(lhs.layout, rhs.layout), "cannot broadcast shapes"
+            assert is_broadcastable(lhs.layout, rhs.layout), "cannot broadcast shapes"
             return NDArray(lib.array_array_scalar_op(op, lhs.buffer, rhs.buffer))
         if isinstance(lhs, NDArray) and isinstance(rhs, (int, float)):
             return NDArray(lib.array_scalar_op(op, lhs.buffer, rhs))
