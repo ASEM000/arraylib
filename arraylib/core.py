@@ -38,13 +38,6 @@ lib = ffi.dlopen(os.path.join(Path(__file__).parent, "src", "arraylib.so"))
 ## -------------------------------------------------------------------------------------------------
 
 
-@dc.dataclass
-class Layout:
-    shape: tuple[int, ...]
-    stride: tuple[int, ...]
-    ndim: int
-
-
 class NDArray:
     """Multi-dimensional array"""
 
@@ -66,10 +59,6 @@ class NDArray:
     @property
     def view(self) -> bool:
         return self.buffer.view
-
-    @property
-    def layout(self) -> Layout:
-        return Layout(self.shape, self.stride, self.ndim)
 
     @property
     def ndim(self) -> int:
