@@ -20,64 +20,75 @@ void* alloc(size_t size) {
 // UTILS
 // -------------------------------------------------------------------------------------------------
 
-size_t prod(const size_t* nums, size_t ndim) {
+inline size_t prod(const size_t* nums, size_t ndim) {
     assert(ndim > 0 && "ValueError: non-positive ndim");
     size_t total = 1;
     for (size_t i = 0; i < ndim; i++)
-        total *= nums[i];
+        total *= nums[i] == 0 ? 1 : nums[i];  // skip 0 shape
     return total;
 }
 
-size_t* size_t_alloc(size_t ndim) {
+inline size_t* size_t_alloc(size_t ndim) {
     assert(ndim > 0 && "ValueError: non-positive ndim");
     return (size_t*)alloc(sizeof(size_t) * ndim);
 }
 
-size_t* size_t_set(size_t* dst, size_t value, size_t size) {
+inline size_t* size_t_set(size_t* dst, size_t value, size_t size) {
     assert(value >= 0 && "ValueError: negative size");
     for (size_t i = 0; i < size; i++)
         dst[i] = value;
     return dst;
 }
 
-size_t* size_t_copy(size_t* dst, const size_t* src, size_t size) {
+inline size_t* size_t_copy(size_t* dst, const size_t* src, size_t size) {
     assert(src != NULL && "ValueError: src copy is NULL");
     return memcpy(dst, src, sizeof(size_t) * size);
-    ;
-}
-
-size_t compute_flat_index(const size_t* index, const size_t* stride, size_t ndim) {
-    size_t flat_index = 0;
-    for (size_t i = 0; i < ndim; i++)
-        flat_index += index[i] * stride[i];
-    return flat_index;
 }
 
 f32 clamp(f32 value, f32 minval, f32 maxval) {
-    if (value < minval)
-        return minval;
-    if (value > maxval)
-        return maxval;
+    if (value < minval) return minval;
+    if (value > maxval) return maxval;
     return value;
 }
 
-bool is_contiguous(const NDArray* array) {
+inline bool is_contiguous(const Layout* lay) {
     size_t contiguous_stride = 1;
-    for (ssize_t i = array->lay->ndim - 1; i >= 0; i--) {
-        if (contiguous_stride != array->lay->stride[i])
-            return false;
-        contiguous_stride *= array->lay->shape[i];
+    for (ssize_t i = lay->ndim - 1; i >= 0; i--) {
+        if (contiguous_stride != lay->stride[i]) return false;
+        contiguous_stride *= lay->shape[i];
     }
     return true;
 }
 
-size_t cdiv(size_t a, size_t b) { return (a + b - 1) / b; }
+inline size_t cdiv(size_t a, size_t b) { return (a + b - 1) / b; }
 
-size_t* compute_stride(size_t* dst, const size_t* shape, const size_t ndim) {
+inline size_t* compute_stride(size_t* dst, const size_t* shape, const size_t ndim) {
     dst[ndim - 1] = 1;
     for (ssize_t i = ndim - 2; i >= 0; i--)
         dst[i] = dst[i + 1] * shape[i + 1];
     return dst;
+}
+
+inline size_t index_flatten(const size_t* index, const Layout* lay) {
+    size_t flat_index = 0;
+    for (size_t i = 0; i < lay->ndim; i++)
+        flat_index += index[i] * lay->stride[i];
+    return flat_index;
+}
+
+inline size_t* index_unflatten(size_t* dst, size_t index, const Layout* lay) {
+    for (ssize_t i = lay->ndim - 1; i >= 0; i--)
+        dst[i] = (index % lay->shape[i]), index /= lay->shape[i];
+    return dst;
+}
+
+inline size_t index_offset(size_t index, const Layout* lay) {
+    size_t offset = 0;
+    for (ssize_t i = lay->ndim - 1; i >= 0; i--) {
+        offset += (index % lay->shape[i]) * lay->stride[i];
+        index /= lay->shape[i];
+    }
+    return offset;
 }
 
 // -------------------------------------------------------------------------------------------------
@@ -141,15 +152,13 @@ void layout_free(Layout* lay) {
 }
 
 bool is_same_shape(const Layout* lhs, const Layout* rhs) {
-    if (lhs->ndim != rhs->ndim)
-        return false;
+    if (lhs->ndim != rhs->ndim) return false;
     for (size_t i = 0; i < lhs->ndim; i++)
-        if (lhs->shape[i] != rhs->shape[i])
-            return false;
+        if (lhs->shape[i] != rhs->shape[i]) return false;
     return false;
 }
 
-bool is_broadcastable(const Layout* lhs, const Layout* rhs) {
+inline bool is_broadcastable(const Layout* lhs, const Layout* rhs) {
     ssize_t li = lhs->ndim;
     ssize_t ri = rhs->ndim;
     while (--li >= 0 && --ri >= 0)
@@ -212,50 +221,6 @@ void array_free(NDArray* array) {
 }
 
 // -------------------------------------------------------------------------------------------------
-// ITERATOR
-// -------------------------------------------------------------------------------------------------
-
-NDIter* iter_create(f32* ptr, const Layout* lay) {
-    NDIter* iter = (NDIter*)alloc(sizeof(NDIter));
-    iter->lay = layout_copy(lay);
-    iter->index = size_t_set(size_t_alloc(lay->ndim), 0, lay->ndim);
-    iter->ptr = ptr;
-    iter->status = ITER_START;
-    return iter;
-}
-
-void iter_free(NDIter* iter) {
-    layout_free(iter->lay);
-    free(iter->index);
-    free(iter);
-}
-
-bool iter_next(NDIter* iter) {
-    if (iter->status == ITER_END)
-        return false;
-
-    if (iter->status == ITER_START) {
-        iter->status = ITER_RUN;
-        return true;
-    }
-
-    for (ssize_t i = iter->lay->ndim - 1; i >= 0; i--) {
-        iter->index[i]++;
-        if (iter->index[i] < iter->lay->shape[i]) {
-            // NOTE: to skip a dimension set the shape and stride to 0
-            // NOTE: to broadcast a dimension set the shape to the broadcasted value
-            // and the stride to 0
-            iter->ptr += iter->lay->stride[i];
-            return true;
-        }
-        iter->index[i] = 0;  // move to next
-        iter->ptr -= (iter->lay->shape[i] - 1) * iter->lay->stride[i];
-    }
-    iter->status = ITER_END;
-    return false;
-}
-
-// -------------------------------------------------------------------------------------------------
 // COPY
 // -------------------------------------------------------------------------------------------------
 
@@ -272,12 +237,11 @@ NDArray* array_shallow_copy(const NDArray* src) {
 
 NDArray* array_deep_copy(const NDArray* src) {
     NDArray* dst = array_empty(src->lay->shape, src->lay->ndim);
-    NDIter* idst = iter_create(dst->ptr, dst->lay);
-    NDIter* isrc = iter_create(src->ptr, src->lay);
-    while (iter_next(idst) && iter_next(isrc))
-        *idst->ptr = *isrc->ptr;
-    FREE(idst);
-    FREE(isrc);
+    size_t size = prod(dst->lay->shape, dst->lay->ndim);
+
+#pragma omp parallel for
+    for (size_t i = 0; i < size; i++)
+        dst->ptr[index_offset(i, dst->lay)] = src->ptr[index_offset(i, src->lay)];
     return dst;
 }
 
@@ -332,11 +296,6 @@ NDArray* array_linspace(f32 start, f32 end, f32 n) {
 // GETTERS
 // -------------------------------------------------------------------------------------------------
 
-f32 array_get_scalar_from_index(const NDArray* array, const size_t* index) {
-    size_t findex = compute_flat_index(index, array->lay->stride, array->lay->ndim);
-    return array->ptr[findex];
-}
-
 NDArray* array_get_view_from_range(
         const NDArray* src,
         const size_t* start,
@@ -347,17 +306,17 @@ NDArray* array_get_view_from_range(
         assert(end[i] <= src->lay->shape[i] && "ValueError: invald end.");
         assert(step[i] > 0 && "ValueError: negative step.");
     }
-    Layout* view_layout = layout_alloc(src->lay->ndim);
+    Layout* vlay = layout_alloc(src->lay->ndim);
     size_t offset = 0;
     for (size_t i = 0; i < src->lay->ndim; i++) {
-        view_layout->shape[i] = cdiv(end[i] - start[i], step[i]);
-        view_layout->stride[i] = src->lay->stride[i] * step[i];
+        vlay->shape[i] = cdiv(end[i] - start[i], step[i]);
+        vlay->stride[i] = src->lay->stride[i] * step[i];
         offset += start[i] * src->lay->stride[i];
     }
     assert(offset < src->data->size && "ValueError: offset >= size.");
     NDArray* dst = array_shallow_copy(src);
     FREE(dst->lay);
-    dst->lay = view_layout;
+    dst->lay = vlay;
     dst->ptr = src->ptr + offset;
     return dst;
 }
@@ -366,37 +325,30 @@ NDArray* array_get_view_from_range(
 // SETTERS
 // -------------------------------------------------------------------------------------------------
 
-NDArray* array_set_scalar_from_index(NDArray* array, f32 value, const size_t* index) {
-    size_t findex = compute_flat_index(index, array->lay->stride, array->lay->ndim);
-    array->ptr[findex] = value;
-    return array;
-}
-
 NDArray* array_set_scalar_from_range(
-        NDArray* array,
+        NDArray* dst,
         f32 value,
         const size_t* start,
         const size_t* end,
         const size_t* step) {
-    for (size_t i = 0; i < array->lay->ndim; i++) {
+    for (size_t i = 0; i < dst->lay->ndim; i++) {
         assert(start[i] < end[i] && "ValueError: start index > end index.");
         assert(start[i] >= 0 && "ValueError: negative start index");
-        assert(end[i] <= array->lay->shape[i] && "ValueError: end index out of bounds.");
+        assert(end[i] <= dst->lay->shape[i] && "ValueError: end index out of bounds.");
         assert(step[i] > 0 && "ValueError: negative step size.");
     }
-    size_t ndim = array->lay->ndim;
-    Layout* view_layout = layout_alloc(array->lay->ndim);
+    size_t ndim = dst->lay->ndim;
+    Layout* vlay = layout_alloc(dst->lay->ndim);
     for (size_t i = 0; i < ndim; i++) {
-        view_layout->shape[i] = cdiv(end[i] - start[i], step[i]);
-        view_layout->shape[i] = array->lay->stride[i] * step[i];
+        vlay->shape[i] = cdiv(end[i] - start[i], step[i]);
+        vlay->shape[i] = dst->lay->stride[i] * step[i];
     }
-
-    f32* ptr = array->ptr + compute_flat_index(start, array->lay->stride, array->lay->ndim);
-    NDIter* iter = iter_create(ptr, view_layout);
-    while (iter_next(iter))
-        *iter->ptr = value;
-    FREE(iter);
-    return array;
+    f32* ptr = dst->ptr + index_flatten(start, dst->lay);
+    size_t size = prod(vlay->shape, vlay->ndim);
+#pragma omp parallel
+    for (size_t i = 0; i < size; i++)
+        ptr[index_offset(i, dst->lay)] = value;
+    return dst;
 }
 
 NDArray* array_set_view_from_array(
@@ -413,23 +365,18 @@ NDArray* array_set_view_from_array(
         assert(end[i] <= dst->lay->shape[i] && "ValueError: end index out of bounds.");
         assert(step[i] > 0 && "ValueError: negative step size.");
     }
-    Layout* view_layout = layout_alloc(ndim);
-    view_layout->ndim = ndim;
+    Layout* vlay = layout_alloc(ndim);
+    vlay->ndim = ndim;
     for (size_t i = 0; i < ndim; i++) {
-        view_layout->shape[i] = cdiv(end[i] - start[i], step[i]);
-        view_layout->stride[i] = dst->lay->stride[i] * step[i];
+        vlay->shape[i] = cdiv(end[i] - start[i], step[i]);
+        vlay->stride[i] = dst->lay->stride[i] * step[i];
     }
-
-    assert((prod(view_layout->shape, ndim) == prod(src->lay->shape, ndim))
-           && "ValueError: set value shape mismatch.");
-    f32* pdst = dst->ptr + compute_flat_index(start, dst->lay->stride, ndim);
-    NDIter* idst = iter_create(pdst, view_layout);
-    NDIter* isrc = iter_create(src->ptr, src->lay);
-    while (iter_next(isrc) && iter_next(idst))
-        *idst->ptr = *isrc->ptr;
-    FREE(isrc);
-    FREE(idst);
-    FREE(view_layout);
+    size_t size = prod(vlay->shape, ndim);
+    assert((size == prod(src->lay->shape, ndim)) && "ValueError: shape mismatch.");
+    f32* pdst = dst->ptr + index_flatten(start, dst->lay);
+#pragma omp parallel for
+    for (size_t i = 0; i < size; i++)
+        pdst[index_offset(i, vlay)] = src->ptr[index_offset(i, src->lay)];
     return dst;
 }
 
@@ -439,7 +386,7 @@ NDArray* array_set_view_from_array(
 
 NDArray* array_reshape(const NDArray* src, const size_t* shape, size_t ndim) {
     assert(prod(shape, ndim) == src->data->size);
-    NDArray* dst = is_contiguous(src) ? array_shallow_copy(src) : array_deep_copy(src);
+    NDArray* dst = is_contiguous(src->lay) ? array_shallow_copy(src) : array_deep_copy(src);
     FREE(dst->lay);
     dst->lay = layout_alloc(ndim);
     dst->lay->shape = size_t_copy(dst->lay->shape, shape, ndim);
@@ -449,7 +396,7 @@ NDArray* array_reshape(const NDArray* src, const size_t* shape, size_t ndim) {
 }
 
 NDArray* array_transpose(const NDArray* src, const size_t* dims) {
-    NDArray* dst = is_contiguous(src) ? array_shallow_copy(src) : array_deep_copy(src);
+    NDArray* dst = is_contiguous(src->lay) ? array_shallow_copy(src) : array_deep_copy(src);
     size_t ndim = src->lay->ndim;
     Layout* original_layout = layout_copy(src->lay);
     for (size_t i = 0; i < ndim; i++) {
@@ -471,7 +418,7 @@ NDArray* array_move_dim(const NDArray* src, const size_t* from, const size_t* to
 
     for (size_t i = 0; i < ndim; i++)
         bucket[from[i]] = 1;  // mark used dimension
-    NDArray* dst = is_contiguous(src) ? array_shallow_copy(src) : array_deep_copy(src);
+    NDArray* dst = is_contiguous(src->lay) ? array_shallow_copy(src) : array_deep_copy(src);
     size_t to_from[src->lay->ndim];
     size_t_set(to_from, ITERDIM, src->lay->ndim);
     for (size_t i = 0; i < ndim; i++)
@@ -495,7 +442,7 @@ NDArray* array_move_dim(const NDArray* src, const size_t* from, const size_t* to
 
 NDArray* array_ravel(const NDArray* src) {
     size_t total = prod(src->lay->shape, src->lay->ndim);
-    NDArray* dst = is_contiguous(src) ? array_shallow_copy(src) : array_deep_copy(src);
+    NDArray* dst = is_contiguous(src->lay) ? array_shallow_copy(src) : array_deep_copy(src);
     FREE(dst->lay);
     dst->lay = layout_alloc(1);
     dst->lay->shape = size_t_set(size_t_alloc(1), total, 1);
@@ -509,12 +456,13 @@ NDArray* array_ravel(const NDArray* src) {
 
 NDArray* array_scalar_op(binop fn, const NDArray* src, f32 rhs) {
     NDArray* dst = array_empty(src->lay->shape, src->lay->ndim);
-    NDIter* isrc = iter_create(src->ptr, src->lay);
-    NDIter* idst = iter_create(dst->ptr, dst->lay);
-    while (iter_next(isrc) && iter_next(idst))
-        *idst->ptr = fn(*isrc->ptr, rhs);
-    FREE(isrc);
-    FREE(idst);
+    size_t size = prod(src->lay->shape, src->lay->ndim);
+#pragma omp parallel for
+    for (size_t i = 0; i < size; i++) {
+        size_t doffset = index_offset(i, dst->lay);
+        size_t soffset = index_offset(i, src->lay);
+        *(doffset + dst->ptr) = fn(*(soffset + src->ptr), rhs);
+    }
     return dst;
 }
 
@@ -555,6 +503,7 @@ NDArray* array_array_matmul(const NDArray* lhs, const NDArray* rhs) {
     size_t out_s0 = out->lay->stride[0];
     size_t out_s1 = out->lay->stride[1];
 
+#pragma omp parallel for
     for (size_t i0 = 0; i0 < M; i0 += BLOCK_SIZE) {
         for (size_t k0 = 0; k0 < K; k0 += BLOCK_SIZE) {
             for (size_t j0 = 0; j0 < N; j0 += BLOCK_SIZE) {
@@ -577,7 +526,6 @@ NDArray* array_array_matmul(const NDArray* lhs, const NDArray* rhs) {
     }
     return out;
 }
-
 // -------------------------------------------------------------------------------------------------
 // ARRAY-ARRAY OPERATIONS
 // -------------------------------------------------------------------------------------------------
@@ -588,18 +536,16 @@ NDArray* array_array_scalar_op(binop fn, const NDArray* lhs, const NDArray* rhs)
     Layout** blays = layout_broadcast(lays, 2);
     Layout* lhs_blay = blays[0];
     Layout* rhs_blay = blays[1];
-
+    size_t size = prod(lhs_blay->shape, lhs_blay->ndim);
     NDArray* out = array_empty(lhs_blay->shape, lhs_blay->ndim);
-    NDIter* ilhs = iter_create(lhs->ptr, lhs_blay);
-    NDIter* irhs = iter_create(rhs->ptr, rhs_blay);
-    NDIter* iout = iter_create(out->ptr, out->lay);
 
-    while (iter_next(ilhs) && iter_next(irhs) && iter_next(iout))
-        *iout->ptr = fn(*ilhs->ptr, *irhs->ptr);
+#pragma omp parallel for
+    for (size_t i = 0; i < size; i++) {
+        f32 lval = lhs->ptr[index_offset(i, lhs_blay)];
+        f32 rval = rhs->ptr[index_offset(i, rhs_blay)];
+        out->ptr[index_offset(i, out->lay)] = fn(lval, rval);
+    }
 
-    FREE(ilhs);
-    FREE(irhs);
-    FREE(iout);
     FREE(lhs_blay);
     FREE(rhs_blay);
     FREE(blays);
@@ -652,12 +598,12 @@ static inline f32 exp32(f32 lhs) { return expf(lhs); }
 
 NDArray* array_op(uniop fn, const NDArray* src) {
     NDArray* dst = array_empty(src->lay->shape, src->lay->ndim);
-    NDIter* isrc = iter_create(src->ptr, src->lay);
-    NDIter* idst = iter_create(dst->ptr, dst->lay);
-    while (iter_next(isrc) && iter_next(idst))
-        *idst->ptr = fn(*isrc->ptr);
-    FREE(isrc);
-    FREE(idst);
+    size_t size = prod(src->lay->shape, src->lay->ndim);
+#pragma omp parallel for
+    for (size_t i = 0; i < size; i++) {
+        f32 val = src->ptr[index_offset(i, src->lay)];
+        dst->ptr[index_offset(i, dst->lay)] = fn(val);
+    }
     return dst;
 }
 
@@ -674,14 +620,17 @@ NDArray* array_array_dot(const NDArray* lhs, const NDArray* rhs) {
     assert(rhs->lay->ndim == 1 && "ValueError: rhs dimension != 1 for dot.");
     assert(lhs->lay->shape[0] == rhs->lay->shape[0] && "ValueError: dot shape mismatch.");
     f32 acc = 0.0f;
-    NDIter* ilhs = iter_create(lhs->ptr, lhs->lay);
-    NDIter* irhs = iter_create(rhs->ptr, rhs->lay);
-    while (iter_next(ilhs) && iter_next(irhs))
-        acc = sum32(acc, mul32(*ilhs->ptr, *irhs->ptr));
-    FREE(ilhs);
-    FREE(irhs);
+    size_t size = prod(lhs->lay->shape, lhs->lay->ndim);
+
+#pragma omp parallel for reduction(+ : acc)
+    for (size_t i = 0; i < size; i++) {
+        f32 lval = lhs->ptr[index_offset(i, lhs->lay)];  // NOTE: stick to function call
+        f32 rval = rhs->ptr[index_offset(i, rhs->lay)];
+        acc = sum32(acc, mul32(lval, rval));
+    }
+
     NDArray* out = array_empty((size_t[]){1}, 1);
-    out->data->mem[0] = acc;
+    out->ptr[0] = acc;
     return out;
 }
 
@@ -693,35 +642,62 @@ NDArray* array_reduce(
         f32 acc_init) {
     char is_reduce_dim[src->lay->ndim];
     memset(is_reduce_dim, 0, src->lay->ndim);
-    for (size_t i = 0; i < reduce_ndim; i++)
+
+    for (size_t i = 0; i < reduce_ndim; i++) {
+        assert(reduce_dims[i] < src->lay->ndim && "ValueError: out of bounds");
         is_reduce_dim[reduce_dims[i]] = 1;
+    }
 
     size_t dst_shape[src->lay->ndim];
+
     for (size_t i = 0; i < src->lay->ndim; i++)
-        dst_shape[i] = (is_reduce_dim[i] == true) ? 1 : src->lay->shape[i];
+        dst_shape[i] = is_reduce_dim[i] ? 1 : src->lay->shape[i];
 
-    Layout* reduced_lay = layout_copy(src->lay);
-    for (size_t i = 0; i < src->lay->ndim; i++) {
-        reduced_lay->stride[i] = (is_reduce_dim[i] == true) ? src->lay->stride[i] : 0;
-        reduced_lay->shape[i] = (is_reduce_dim[i] == true) ? src->lay->shape[i] : 0;
+    NDArray* dst = array_empty(dst_shape, src->lay->ndim);
+
+    // NOTE: moving from src offset to dst offset simply zeros-out
+    // any movement along reduced axes by setting stride=0.
+    Layout* src_to_dst_layout = layout_copy(src->lay);
+
+    size_t dst_size = prod(dst->lay->shape, dst->lay->ndim);
+    size_t src_size = prod(src->lay->shape, src->lay->ndim);
+
+    for (size_t i = 0; i < src->lay->ndim; i++)
+        src_to_dst_layout->stride[i] = (is_reduce_dim[i]) ? 0 : dst->lay->stride[i];
+
+    for (size_t i = 0; i < dst_size; i++)
+        dst->ptr[index_offset(i, dst->lay)] = acc_init;
+
+    f32* tmp_buffer = (f32*)alloc(sizeof(f32) * dst_size);
+    for (size_t i = 0; i < dst_size; i++)
+        tmp_buffer[i] = acc_init;
+
+    for (size_t i = 0; i < dst_size; i++)
+        dst->ptr[i] = acc_init;
+
+#pragma omp parallel
+    {
+        f32* private_buffer = (f32*)malloc(sizeof(f32) * dst_size);
+        for (size_t i = 0; i < dst_size; i++)
+            private_buffer[i] = acc_init;
+
+#pragma omp for
+        for (size_t i = 0; i < src_size; i++) {
+            size_t src_offset = index_offset(i, src->lay);
+            f32 src_val = src->ptr[src_offset];
+
+            size_t dst_offset = index_offset(i, src_to_dst_layout);
+            private_buffer[dst_offset] = acc_fn(private_buffer[dst_offset], src_val);
+        }
+
+#pragma omp critical
+        {
+            for (size_t i = 0; i < dst_size; i++)
+                dst->ptr[i] = acc_fn(dst->ptr[i], private_buffer[i]);
+        }
+        free(private_buffer);
     }
 
-    NDArray* dst = array_zeros(dst_shape, src->lay->ndim);
-    NDIter* idst = iter_create(dst->ptr, dst->lay);
-    NDIter* isrc = iter_create(src->ptr, reduced_lay);
-
-    while (iter_next(idst)) {
-        f32 sum = acc_init;
-        size_t offset = compute_flat_index(idst->index, src->lay->stride, src->lay->ndim);
-        isrc->ptr = src->ptr + offset;
-        isrc->index = size_t_copy(isrc->index, idst->index, src->lay->ndim);
-        while (iter_next(isrc))
-            sum = acc_fn(sum, *isrc->ptr);
-        isrc->status = ITER_START;
-        dst = array_set_scalar_from_index(dst, sum, idst->index);
-    }
-    FREE(isrc);
-    FREE(idst);
     return dst;
 }
 
@@ -748,18 +724,16 @@ NDArray* array_array_array_where(const NDArray* cond, const NDArray* lhs, const 
                && lhs->lay->shape[i] == rhs->lay->shape[i]);
 
     NDArray* dst = array_empty(cond->lay->shape, cond->lay->ndim);
-    NDIter* ilhs = iter_create(lhs->ptr, lhs->lay);
-    NDIter* irhs = iter_create(rhs->ptr, rhs->lay);
-    NDIter* icond = iter_create(cond->ptr, cond->lay);
-    NDIter* idst = iter_create(dst->ptr, dst->lay);
+    size_t size = prod(cond->lay->shape, cond->lay->ndim);
 
-    while (iter_next(ilhs) && iter_next(irhs) && iter_next(icond) && iter_next(idst))
-        *idst->ptr = *icond->ptr ? *ilhs->ptr : *irhs->ptr;
+#pragma omp parallel for
+    for (size_t i = 0; i < size; i++) {
+        f32 lval = lhs->ptr[index_offset(i, lhs->lay)];
+        f32 rval = rhs->ptr[index_offset(i, rhs->lay)];
+        f32 cval = cond->ptr[index_offset(i, cond->lay)];
+        dst->ptr[index_offset(i, dst->lay)] = cval ? lval : rval;
+    }
 
-    FREE(ilhs);
-    FREE(irhs);
-    FREE(icond);
-    FREE(idst);
     return dst;
 }
 
@@ -769,16 +743,15 @@ NDArray* array_array_scalar_where(const NDArray* cond, const NDArray* lhs, f32 r
         assert(cond->lay->shape[i] == lhs->lay->shape[i]);
 
     NDArray* dst = array_empty(lhs->lay->shape, lhs->lay->ndim);
-    NDIter* ilhs = iter_create(lhs->ptr, lhs->lay);
-    NDIter* icond = iter_create(cond->ptr, cond->lay);
-    NDIter* idst = iter_create(dst->ptr, dst->lay);
+    size_t size = prod(cond->lay->shape, cond->lay->ndim);
 
-    while (iter_next(ilhs) && iter_next(icond) && iter_next(idst))
-        *idst->ptr = *icond->ptr ? *ilhs->ptr : rhs;
+#pragma omp parallel for
+    for (size_t i = 0; i < size; i++) {
+        f32 lval = lhs->ptr[index_offset(i, lhs->lay)];
+        f32 cval = cond->ptr[index_offset(i, cond->lay)];
+        dst->ptr[index_offset(i, dst->lay)] = cval ? lval : rhs;
+    }
 
-    FREE(ilhs);
-    FREE(icond);
-    FREE(idst);
     return dst;
 }
 
@@ -788,29 +761,26 @@ NDArray* array_scalar_array_where(const NDArray* cond, f32 lhs, const NDArray* r
         assert(cond->lay->shape[i] == rhs->lay->shape[i]);
 
     NDArray* dst = array_empty(rhs->lay->shape, rhs->lay->ndim);
-    NDIter* irhs = iter_create(rhs->ptr, rhs->lay);
-    NDIter* icond = iter_create(cond->ptr, cond->lay);
-    NDIter* idst = iter_create(dst->ptr, dst->lay);
+    size_t size = prod(cond->lay->shape, cond->lay->ndim);
 
-    while (iter_next(irhs) && iter_next(icond) && iter_next(idst))
-        *idst->ptr = *icond->ptr ? lhs : *irhs->ptr;
-
-    FREE(irhs);
-    FREE(icond);
-    FREE(idst);
+#pragma omp parallel for
+    for (size_t i = 0; i < size; i++) {
+        f32 rval = rhs->ptr[index_offset(i, rhs->lay)];
+        f32 cval = cond->ptr[index_offset(i, cond->lay)];
+        dst->ptr[index_offset(i, dst->lay)] = cval ? lhs : rval;
+    }
     return dst;
 }
 
 NDArray* array_scalar_scalar_where(const NDArray* cond, f32 lhs, f32 rhs) {
     NDArray* dst = array_empty(cond->lay->shape, cond->lay->ndim);
-    NDIter* icond = iter_create(cond->ptr, cond->lay);
-    NDIter* idst = iter_create(dst->ptr, dst->lay);
+    size_t size = prod(cond->lay->shape, cond->lay->ndim);
 
-    while (iter_next(icond) && iter_next(idst))
-        *idst->ptr = *icond->ptr ? lhs : rhs;
-
-    FREE(icond);
-    FREE(idst);
+#pragma omp parallel for
+    for (size_t i = 0; i < size; i++) {
+        f32 cval = cond->ptr[index_offset(i, cond->lay)];
+        dst->ptr[index_offset(i, dst->lay)] = cval ? lhs : rhs;
+    }
     return dst;
 }
 
@@ -819,54 +789,54 @@ NDArray* array_scalar_scalar_where(const NDArray* cond, f32 lhs, f32 rhs) {
 // -------------------------------------------------------------------------------------------------
 
 NDArray* array_cat(const NDArray** arrays, size_t narray, const size_t* dims, size_t ndim) {
-    // NOTE: concatenation along multiple dimensions is similar to
-    // zero-padded numpy block, for instance an array [[1, 2, 3]] of shape 1x3 and
-    // and array [[1, 2],[3, 4]] of shape 2x2 can be concatenated along the
-    // both axes to form [[1, 2, 3, 0, 0], [0, 0, 0, 1, 2], [0, 0, 0, 3, 4]] of shape 3x5
     size_t ref_ndim = arrays[0]->lay->ndim;
-    char cat_dim[ref_ndim];
-    memset(cat_dim, 0, ref_ndim);
-
-    for (size_t i = 0; i < ndim; i++) {
-        assert(dims[i] < ref_ndim && "ValueError: concat dimension out of bounds");
-        cat_dim[dims[i]] = 1;
-    }
-
-    for (size_t i = 1; i < narray; i++) {
+    for (size_t i = 1; i < narray; i++)
         assert(arrays[i]->lay->ndim == ref_ndim && "ValueError: dimension mismatch.");
-        for (size_t j = 0; j < ref_ndim; j++) {
-            if (cat_dim[j] == 1)
-                continue;
-            assert(arrays[i]->lay->shape[j] == arrays[0]->lay->shape[j]
-                   && "ValueError: non-cat dimensions have different values.");
-        }
-    }
 
     size_t* out_shape = size_t_copy(size_t_alloc(ref_ndim), arrays[0]->lay->shape, ref_ndim);
-    for (size_t i = 1; i < narray; i++)
-        for (size_t j = 0; j < ndim; j++)
-            out_shape[dims[j]] += arrays[i]->lay->shape[dims[j]];
+
+    for (size_t i = 0; i < ndim; i++) {
+        size_t dim = dims[i];
+        out_shape[dim] = 0;
+        for (size_t j = 0; j < narray; j++)
+            out_shape[dim] += arrays[j]->lay->shape[dim];
+    }
+
+    for (size_t i = 0; i < ref_ndim; i++) {
+        bool is_concat_dim = false;
+        for (size_t j = 0; j < ndim; j++) {
+            if (dims[j] == i) {
+                is_concat_dim = true;
+                break;
+            }
+        }
+        if (!is_concat_dim)
+            for (size_t j = 1; j < narray; j++)
+                assert(arrays[j]->lay->shape[i] == arrays[0]->lay->shape[i]
+                       && "ValueError: non-concat dimensions must have the same size.");
+    }
 
     NDArray* dst = array_zeros(out_shape, ref_ndim);
     FREE(out_shape);
+    size_t* shape_offset = size_t_set(size_t_alloc(ndim), 0, ndim);
 
-    size_t dims_offset[ndim];
-    size_t_set(dims_offset, 0, ndim);
-
+#pragma omp parallel for
     for (size_t i = 0; i < narray; i++) {
-        NDIter* isrc = iter_create(arrays[i]->ptr, arrays[i]->lay);
-
-        while (iter_next(isrc)) {
-            size_t temp_index[ref_ndim];
-            size_t_copy(temp_index, isrc->index, ref_ndim);
-            for (size_t j = 0; j < ndim; j++)
-                temp_index[dims[j]] += dims_offset[j];
-            array_set_scalar_from_index(dst, *isrc->ptr, temp_index);
+        size_t size = prod(arrays[i]->lay->shape, arrays[i]->lay->ndim);
+        for (size_t j = 0; j < size; j++) {
+            size_t* multi_index = index_unflatten(size_t_alloc(ref_ndim), j, arrays[i]->lay);
+            for (size_t k = 0; k < ndim; k++)
+                multi_index[dims[k]] += shape_offset[k];
+            size_t src_offset = index_offset(j, arrays[i]->lay);
+            size_t dst_offset = index_flatten(multi_index, dst->lay);
+            dst->ptr[dst_offset] = arrays[i]->ptr[src_offset];
+            FREE(multi_index);
         }
-        for (size_t j = 0; j < ndim; j++)
-            dims_offset[j] += arrays[i]->lay->shape[dims[j]];
-        FREE(isrc);
+
+        for (size_t k = 0; k < ndim; k++)
+            shape_offset[k] += arrays[i]->lay->shape[dims[k]];
     }
 
+    FREE(shape_offset);
     return dst;
 }
