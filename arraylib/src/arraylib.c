@@ -82,7 +82,7 @@ inline size_t* index_unflatten(size_t* dst, size_t index, const Layout* lay) {
     return dst;
 }
 
-inline size_t index_offset(size_t index, const Layout* lay) {
+inline size_t offset_indexer(size_t index, const Layout* lay) {
     size_t offset = 0;
     for (ssize_t i = lay->ndim - 1; i >= 0; i--) {
         offset += (index % lay->shape[i]) * lay->stride[i];
@@ -241,7 +241,7 @@ NDArray* array_deep_copy(const NDArray* src) {
 
 #pragma omp parallel for
     for (size_t i = 0; i < size; i++)
-        dst->ptr[index_offset(i, dst->lay)] = src->ptr[index_offset(i, src->lay)];
+        dst->ptr[i] = src->ptr[offset_indexer(i, src->lay)];
     return dst;
 }
 
@@ -288,7 +288,7 @@ NDArray* array_linspace(f32 start, f32 end, f32 n) {
     f32 dx = div32((end - start), n - 1);
     NDArray* out_array = array_arange(0, n, 1);
     for (size_t i = 0; i < out_array->data->size; i++)
-        out_array->data->mem[i] = start + out_array->data->mem[i] * dx;
+        out_array->ptr[i] = start + out_array->ptr[i] * dx;
     return out_array;
 }
 
@@ -297,7 +297,7 @@ NDArray* array_linspace(f32 start, f32 end, f32 n) {
 // -------------------------------------------------------------------------------------------------
 
 f32 array_get_scalar_from_index(const NDArray* array, const size_t* index) {
-    return array->ptr[index_offset(index_flatten(index, array->lay), array->lay)];
+    return array->ptr[offset_indexer(index_flatten(index, array->lay), array->lay)];
 }
 
 NDArray* array_get_view_from_range(
@@ -355,7 +355,7 @@ NDArray* array_set_scalar_from_range(
     size_t size = prod(vlay->shape, vlay->ndim);
 #pragma omp parallel
     for (size_t i = 0; i < size; i++)
-        ptr[index_offset(i, dst->lay)] = value;
+        ptr[offset_indexer(i, dst->lay)] = value;
     return dst;
 }
 
@@ -384,7 +384,7 @@ NDArray* array_set_view_from_array(
     f32* pdst = dst->ptr + index_flatten(start, dst->lay);
 #pragma omp parallel for
     for (size_t i = 0; i < size; i++)
-        pdst[index_offset(i, vlay)] = src->ptr[index_offset(i, src->lay)];
+        pdst[offset_indexer(i, vlay)] = src->ptr[offset_indexer(i, src->lay)];
     return dst;
 }
 
@@ -467,9 +467,9 @@ NDArray* array_scalar_op(binop fn, const NDArray* src, f32 rhs) {
     size_t size = prod(src->lay->shape, src->lay->ndim);
 #pragma omp parallel for
     for (size_t i = 0; i < size; i++) {
-        size_t doffset = index_offset(i, dst->lay);
-        size_t soffset = index_offset(i, src->lay);
-        *(doffset + dst->ptr) = fn(*(soffset + src->ptr), rhs);
+        size_t doffset = offset_indexer(i, dst->lay);
+        size_t soffset = offset_indexer(i, src->lay);
+        dst->ptr[doffset] = fn(src->ptr[soffset], rhs);
     }
     return dst;
 }
@@ -511,7 +511,7 @@ NDArray* array_array_matmul(const NDArray* lhs, const NDArray* rhs) {
     size_t out_s0 = out->lay->stride[0];
     size_t out_s1 = out->lay->stride[1];
 
-#pragma omp parallel for
+#pragma omp parallel for collapse(2)
     for (size_t i0 = 0; i0 < M; i0 += BLOCK_SIZE) {
         for (size_t k0 = 0; k0 < K; k0 += BLOCK_SIZE) {
             for (size_t j0 = 0; j0 < N; j0 += BLOCK_SIZE) {
@@ -549,9 +549,9 @@ NDArray* array_array_scalar_op(binop fn, const NDArray* lhs, const NDArray* rhs)
 
 #pragma omp parallel for
     for (size_t i = 0; i < size; i++) {
-        f32 lval = lhs->ptr[index_offset(i, lhs_blay)];
-        f32 rval = rhs->ptr[index_offset(i, rhs_blay)];
-        out->ptr[index_offset(i, out->lay)] = fn(lval, rval);
+        f32 lval = lhs->ptr[offset_indexer(i, lhs_blay)];
+        f32 rval = rhs->ptr[offset_indexer(i, rhs_blay)];
+        out->ptr[i] = fn(lval, rval);
     }
 
     FREE(lhs_blay);
@@ -608,10 +608,8 @@ NDArray* array_op(uniop fn, const NDArray* src) {
     NDArray* dst = array_empty(src->lay->shape, src->lay->ndim);
     size_t size = prod(src->lay->shape, src->lay->ndim);
 #pragma omp parallel for
-    for (size_t i = 0; i < size; i++) {
-        f32 val = src->ptr[index_offset(i, src->lay)];
-        dst->ptr[index_offset(i, dst->lay)] = fn(val);
-    }
+    for (size_t i = 0; i < size; i++)
+        dst->ptr[i] = fn(src->ptr[offset_indexer(i, src->lay)]);
     return dst;
 }
 
@@ -632,8 +630,8 @@ NDArray* array_array_dot(const NDArray* lhs, const NDArray* rhs) {
 
 #pragma omp parallel for reduction(+ : acc)
     for (size_t i = 0; i < size; i++) {
-        f32 lval = lhs->ptr[index_offset(i, lhs->lay)];  // NOTE: stick to function call
-        f32 rval = rhs->ptr[index_offset(i, rhs->lay)];
+        f32 lval = lhs->ptr[offset_indexer(i, lhs->lay)];  // NOTE: stick to function call
+        f32 rval = rhs->ptr[offset_indexer(i, rhs->lay)];
         acc = sum32(acc, mul32(lval, rval));
     }
 
@@ -674,7 +672,7 @@ NDArray* array_reduce(
         src_to_dst_layout->stride[i] = (is_reduce_dim[i]) ? 0 : dst->lay->stride[i];
 
     for (size_t i = 0; i < dst_size; i++)
-        dst->ptr[index_offset(i, dst->lay)] = acc_init;
+        dst->ptr[offset_indexer(i, dst->lay)] = acc_init;
 
     f32* tmp_buffer = (f32*)alloc(sizeof(f32) * dst_size);
     for (size_t i = 0; i < dst_size; i++)
@@ -691,10 +689,10 @@ NDArray* array_reduce(
 
 #pragma omp for
         for (size_t i = 0; i < src_size; i++) {
-            size_t src_offset = index_offset(i, src->lay);
+            size_t src_offset = offset_indexer(i, src->lay);
             f32 src_val = src->ptr[src_offset];
 
-            size_t dst_offset = index_offset(i, src_to_dst_layout);
+            size_t dst_offset = offset_indexer(i, src_to_dst_layout);
             private_buffer[dst_offset] = acc_fn(private_buffer[dst_offset], src_val);
         }
 
@@ -736,10 +734,10 @@ NDArray* array_array_array_where(const NDArray* cond, const NDArray* lhs, const 
 
 #pragma omp parallel for
     for (size_t i = 0; i < size; i++) {
-        f32 lval = lhs->ptr[index_offset(i, lhs->lay)];
-        f32 rval = rhs->ptr[index_offset(i, rhs->lay)];
-        f32 cval = cond->ptr[index_offset(i, cond->lay)];
-        dst->ptr[index_offset(i, dst->lay)] = cval ? lval : rval;
+        f32 lval = lhs->ptr[offset_indexer(i, lhs->lay)];
+        f32 rval = rhs->ptr[offset_indexer(i, rhs->lay)];
+        f32 cval = cond->ptr[offset_indexer(i, cond->lay)];
+        dst->ptr[i] = cval ? lval : rval;
     }
 
     return dst;
@@ -755,9 +753,9 @@ NDArray* array_array_scalar_where(const NDArray* cond, const NDArray* lhs, f32 r
 
 #pragma omp parallel for
     for (size_t i = 0; i < size; i++) {
-        f32 lval = lhs->ptr[index_offset(i, lhs->lay)];
-        f32 cval = cond->ptr[index_offset(i, cond->lay)];
-        dst->ptr[index_offset(i, dst->lay)] = cval ? lval : rhs;
+        f32 lval = lhs->ptr[offset_indexer(i, lhs->lay)];
+        f32 cval = cond->ptr[offset_indexer(i, cond->lay)];
+        dst->ptr[i] = cval ? lval : rhs;
     }
 
     return dst;
@@ -773,9 +771,9 @@ NDArray* array_scalar_array_where(const NDArray* cond, f32 lhs, const NDArray* r
 
 #pragma omp parallel for
     for (size_t i = 0; i < size; i++) {
-        f32 rval = rhs->ptr[index_offset(i, rhs->lay)];
-        f32 cval = cond->ptr[index_offset(i, cond->lay)];
-        dst->ptr[index_offset(i, dst->lay)] = cval ? lhs : rval;
+        f32 rval = rhs->ptr[offset_indexer(i, rhs->lay)];
+        f32 cval = cond->ptr[offset_indexer(i, cond->lay)];
+        dst->ptr[i] = cval ? lhs : rval;
     }
     return dst;
 }
@@ -785,10 +783,9 @@ NDArray* array_scalar_scalar_where(const NDArray* cond, f32 lhs, f32 rhs) {
     size_t size = prod(cond->lay->shape, cond->lay->ndim);
 
 #pragma omp parallel for
-    for (size_t i = 0; i < size; i++) {
-        f32 cval = cond->ptr[index_offset(i, cond->lay)];
-        dst->ptr[index_offset(i, dst->lay)] = cval ? lhs : rhs;
-    }
+    for (size_t i = 0; i < size; i++)
+        dst->ptr[i] = cond->ptr[offset_indexer(i, cond->lay)] ? lhs : rhs;
+
     return dst;
 }
 
@@ -835,7 +832,7 @@ NDArray* array_cat(const NDArray** arrays, size_t narray, const size_t* dims, si
             size_t* multi_index = index_unflatten(size_t_alloc(ref_ndim), j, arrays[i]->lay);
             for (size_t k = 0; k < ndim; k++)
                 multi_index[dims[k]] += shape_offset[k];
-            size_t src_offset = index_offset(j, arrays[i]->lay);
+            size_t src_offset = offset_indexer(j, arrays[i]->lay);
             size_t dst_offset = index_flatten(multi_index, dst->lay);
             dst->ptr[dst_offset] = arrays[i]->ptr[src_offset];
             FREE(multi_index);
