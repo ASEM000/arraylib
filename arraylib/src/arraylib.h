@@ -26,6 +26,7 @@
 #define ITERDIM SIZE_MAX
 
 #define FREE(ptr) _Generic((ptr), NDArray *: array_free, Layout *: layout_free, default: free)(ptr)
+
 // START
 
 // -------------------------------------------------------------------------------------------------
@@ -134,7 +135,7 @@ Data* data_empty(size_t size);
 
 Layout* layout_alloc(size_t ndim);
 
-Layout* layout_copy(const Layout* src);
+Layout* layout_copy(Layout* dst, const Layout* src);
 
 void layout_free(Layout* lay);
 Layout** layout_broadcast(const Layout** lays, size_t nlay);
@@ -430,73 +431,6 @@ NDArray* array_ravel(const NDArray* array);
  */
 NDArray* array_scalar_op(binop fn, const NDArray* lhs, f32 rhs);
 
-/**
- * @brief Adds a scalar to an NDArray.
- * @param lhs Pointer to the NDArray.
- * @param rhs Scalar value.
- * @return Pointer to the resulting NDArray.
- *
- * @code
- * NDArray* result = array_scalar_add(array, 5.0); // Adds 5.0 to each element
- * @endcode
- */
-NDArray* array_scalar_add(const NDArray* lhs, f32 rhs);
-
-/**
- * @brief Subtracts a scalar from an NDArray.
- * @param lhs Pointer to the NDArray.
- * @param rhs Scalar value.
- * @return Pointer to the resulting NDArray.
- *
- * @code
- * NDArray* result = array_scalar_sub(array, 5.0); // Subtracts 5.0 from each element
- * @endcode
- */
-NDArray* array_scalar_sub(const NDArray* lhs, f32 rhs);
-
-/**
- * @brief Multiplies an NDArray by a scalar.
- * @param lhs Pointer to the NDArray.
- * @param rhs Scalar value.
- * @return Pointer to the resulting NDArray.
- *
- * @code
- * NDArray* result = array_scalar_mul(array, 5.0); // Multiplies each element by 5.0
- * @endcode
- */
-NDArray* array_scalar_mul(const NDArray* lhs, f32 rhs);
-
-/**
- * @brief Divides an NDArray by a scalar.
- * @param lhs Pointer to the NDArray.
- * @param rhs Scalar value.
- * @return Pointer to the resulting NDArray.
- *
- * @code
- * NDArray* result = array_scalar_div(array, 5.0); // Divides each element by 5.0
- * @endcode
- */
-NDArray* array_scalar_div(const NDArray* lhs, f32 rhs);
-
-/**
- * @brief Raises an NDArray to the power of a scalar.
- * @param lhs Pointer to the NDArray.
- * @param rhs Scalar value.
- * @return Pointer to the resulting NDArray.
- *
- * @code
- * NDArray* result = array_scalar_pow(array, 2.0); // Squares each element
- * @endcode
- */
-NDArray* array_scalar_pow(const NDArray* lhs, f32 rhs);
-
-NDArray* array_scalar_eq(const NDArray* lhs, f32 rhs);
-NDArray* array_scalar_neq(const NDArray* lhs, f32 rhs);
-NDArray* array_scalar_lt(const NDArray* lhs, f32 rhs);
-NDArray* array_scalar_leq(const NDArray* lhs, f32 rhs);
-NDArray* array_scalar_gt(const NDArray* lhs, f32 rhs);
-NDArray* array_scalar_geq(const NDArray* lhs, f32 rhs);
-
 // -------------------------------------------------------------------------------------------------
 // MATMUL
 // -------------------------------------------------------------------------------------------------
@@ -530,140 +464,6 @@ NDArray* array_array_matmul(const NDArray* lhs, const NDArray* rhs);
  */
 NDArray* array_array_scalar_op(binop fn, const NDArray* lhs, const NDArray* rhs);
 
-/**
- * @brief Adds two NDArrays element-wise.
- * @param lhs Pointer to the left-hand side NDArray.
- * @param rhs Pointer to the right-hand side NDArray.
- * @return Pointer to the resulting NDArray.
- *
- * @code
- * NDArray* result = array_array_sum(array1, array2); // Adds two arrays element-wise
- * @endcode
- */
-NDArray* array_array_sum(const NDArray* lhs, const NDArray* rhs);
-
-/**
- * @brief Subtracts two NDArrays element-wise.
- * @param lhs Pointer to the left-hand side NDArray.
- * @param rhs Pointer to the right-hand side NDArray.
- * @return Pointer to the resulting NDArray.
- *
- * @code
- * NDArray* result = array_array_sub(array1, array2); // Subtracts two arrays element-wise
- * @endcode
- */
-NDArray* array_array_sub(const NDArray* lhs, const NDArray* rhs);
-
-/**
- * @brief Multiplies two NDArrays element-wise.
- * @param lhs Pointer to the left-hand side NDArray.
- * @param rhs Pointer to the right-hand side NDArray.
- * @return Pointer to the resulting NDArray.
- *
- * @code
- * NDArray* result = array_array_mul(array1, array2); // Multiplies two arrays element-wise
- * @endcode
- */
-NDArray* array_array_mul(const NDArray* lhs, const NDArray* rhs);
-
-/**
- * @brief Divides two NDArrays element-wise.
- * @param lhs Pointer to the left-hand side NDArray.
- * @param rhs Pointer to the right-hand side NDArray.
- * @return Pointer to the resulting NDArray.
- *
- * @code
- * NDArray* result = array_array_div(array1, array2); // Divides two arrays element-wise
- * @endcode
- */
-NDArray* array_array_div(const NDArray* lhs, const NDArray* rhs);
-
-/**
- * @brief Raises one NDArray to the power of another element-wise.
- * @param lhs Pointer to the left-hand side NDArray.
- * @param rhs Pointer to the right-hand side NDArray.
- * @return Pointer to the resulting NDArray.
- *
- * @code
- * NDArray* result = array_array_pow(array1, array2); // Raises array1 to the power of array2
- * @endcode
- */
-NDArray* array_array_pow(const NDArray* lhs, const NDArray* rhs);
-
-/**
- * @brief Checks if two NDArrays are equal element-wise.
- * @param lhs Pointer to the left-hand side NDArray.
- * @param rhs Pointer to the right-hand side NDArray.
- * @return Pointer to the resulting NDArray.
- *
- * @code
- * NDArray* result = array_array_eq(array1, array2); // Checks for element-wise equality
- * @endcode
- */
-NDArray* array_array_eq(const NDArray* lhs, const NDArray* rhs);
-
-/**
- * @brief Checks if two NDArrays are not equal element-wise.
- * @param lhs Pointer to the left-hand side NDArray.
- * @param rhs Pointer to the right-hand side NDArray.
- * @return Pointer to the resulting NDArray.
- *
- * @code
- * NDArray* result = array_array_neq(array1, array2); // Checks for element-wise inequality
- * @endcode
- */
-NDArray* array_array_neq(const NDArray* lhs, const NDArray* rhs);
-
-/**
- * @brief Checks if the left-hand side NDArray is greater than the right-hand side element-wise.
- * @param lhs Pointer to the left-hand side NDArray.
- * @param rhs Pointer to the right-hand side NDArray.
- * @return Pointer to the resulting NDArray.
- *
- * @code
- * NDArray* result = array_array_gt(array1, array2); // Checks if array1 > array2 element-wise
- * @endcode
- */
-NDArray* array_array_gt(const NDArray* lhs, const NDArray* rhs);
-
-/**
- * @brief Checks if the left-hand side NDArray is greater than or equal to the right-hand side
- * element-wise.
- * @param lhs Pointer to the left-hand side NDArray.
- * @param rhs Pointer to the right-hand side NDArray.
- * @return Pointer to the resulting NDArray.
- *
- * @code
- * NDArray* result = array_array_geq(array1, array2); // Checks if array1 >= array2 element-wise
- * @endcode
- */
-NDArray* array_array_geq(const NDArray* lhs, const NDArray* rhs);
-
-/**
- * @brief Checks if the left-hand side NDArray is less than the right-hand side element-wise.
- * @param lhs Pointer to the left-hand side NDArray.
- * @param rhs Pointer to the right-hand side NDArray.
- * @return Pointer to the resulting NDArray.
- *
- * @code
- * NDArray* result = array_array_lt(array1, array2); // Checks if array1 < array2 element-wise
- * @endcode
- */
-NDArray* array_array_lt(const NDArray* lhs, const NDArray* rhs);
-
-/**
- * @brief Checks if the left-hand side NDArray is less than or equal to the right-hand side
- * element-wise.
- * @param lhs Pointer to the left-hand side NDArray.
- * @param rhs Pointer to the right-hand side NDArray.
- * @return Pointer to the resulting NDArray.
- *
- * @code
- * NDArray* result = array_array_leq(array1, array2); // Checks if array1 <= array2 element-wise
- * @endcode
- */
-NDArray* array_array_leq(const NDArray* lhs, const NDArray* rhs);
-
 // -------------------------------------------------------------------------------------------------
 // ELEMENTWISE OPERATIONS
 // -------------------------------------------------------------------------------------------------
@@ -675,39 +475,6 @@ NDArray* array_array_leq(const NDArray* lhs, const NDArray* rhs);
  * @return Pointer to the resulting NDArray.
  */
 NDArray* array_op(uniop fn, const NDArray* array);
-
-/**
- * @brief Computes the natural logarithm of an NDArray element-wise.
- * @param array Pointer to the NDArray.
- * @return Pointer to the resulting NDArray.
- *
- * @code
- * NDArray* result = array_log(array); // Computes the natural log of each element
- * @endcode
- */
-NDArray* array_log(const NDArray* array);
-
-/**
- * @brief Negates an NDArray element-wise.
- * @param array Pointer to the NDArray.
- * @return Pointer to the resulting NDArray.
- *
- * @code
- * NDArray* result = array_neg(array); // Negates each element
- * @endcode
- */
-NDArray* array_neg(const NDArray* array);
-
-/**
- * @brief Computes the exponential of an NDArray element-wise.
- * @param array Pointer to the NDArray.
- * @return Pointer to the resulting NDArray.
- *
- * @code
- * NDArray* result = array_exp(array); // Computes the exponential of each element
- * @endcode
- */
-NDArray* array_exp(const NDArray* array);
 
 // -------------------------------------------------------------------------------------------------
 // REDUCTION OPERATIONS
@@ -745,47 +512,6 @@ NDArray* array_reduce(
         const size_t* reduce_dims,
         size_t reduce_ndim,
         f32 acc_init);
-/**
- * @brief Computes the maximum value of an NDArray along specified dimensions.
- * @param array Pointer to the NDArray.
- * @param reduce_dims Array of dimensions to reduce.
- * @param ndim Number of dimensions.
- * @return Pointer to the resulting NDArray.
- *
- * @code
- * size_t reduce_dims[] = {0};
- * NDArray* result = array_reduce_max(array, reduce_dims, 1); // Finds the max along the first dim
- * @endcode
- */
-NDArray* array_reduce_max(const NDArray* array, const size_t* reduce_dims, size_t ndim);
-
-/**
- * @brief Computes the minimum value of an NDArray along specified dimensions.
- * @param array Pointer to the NDArray.
- * @param reduce_dims Array of dimensions to reduce.
- * @param ndim Number of dimensions.
- * @return Pointer to the resulting NDArray.
- *
- * @code
- * size_t reduce_dims[] = {0};
- * NDArray* result = array_reduce_min(array, reduce_dims, 1); // Finds the min along the first dim
- * @endcode
- */
-NDArray* array_reduce_min(const NDArray* array, const size_t* reduce_dims, size_t ndim);
-
-/**
- * @brief Computes the sum of an NDArray along specified dimensions.
- * @param array Pointer to the NDArray.
- * @param reduce_dims Array of dimensions to reduce.
- * @param ndim Number of dimensions.
- * @return Pointer to the resulting NDArray.
- *
- * @code
- * size_t reduce_dims[] = {0};
- * NDArray* result = array_reduce_sum(array, reduce_dims, 1); // Sums along the first dim
- * @endcode
- */
-NDArray* array_reduce_sum(const NDArray* array, const size_t* reduce_dims, size_t ndim);
 
 // -------------------------------------------------------------------------------------------------
 // CONDITIONAL OPERATIONS
@@ -799,7 +525,6 @@ NDArray* array_reduce_sum(const NDArray* array, const size_t* reduce_dims, size_
  * @return Pointer to the resulting NDArray.
  */
 NDArray* array_array_array_where(const NDArray* cond, const NDArray* lhs, const NDArray* rhs);
-
 NDArray* array_array_scalar_where(const NDArray* cond, const NDArray* lhs, f32 rhs);
 NDArray* array_scalar_array_where(const NDArray* cond, f32 lhs, const NDArray* rhs);
 NDArray* array_scalar_scalar_where(const NDArray* cond, f32 lhs, f32 rhs);
