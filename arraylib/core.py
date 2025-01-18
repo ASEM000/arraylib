@@ -336,7 +336,7 @@ def to_numpy(array: NDArray):
         buffer=ffi.buffer(array.buffer.data.mem, array.size * 4),
         shape=array.shape,
         dtype=np.float32,
-        stride=[s * 4 for s in array.stride],
+        strides=[s * 4 for s in array.stride],
     )
 
 
