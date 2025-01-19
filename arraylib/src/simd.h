@@ -55,6 +55,8 @@ static inline NDArray* array_array_matmul_contiguous_4x4_neon(
 
 #else
 #define SIMD_ID 0
+#define SIMD_WIDTH 1
+#define SIMD_MATMUL(x, y) array_array_matmul(x, y)
 
 #endif
 
