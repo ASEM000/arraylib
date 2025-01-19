@@ -155,19 +155,19 @@ class NDArray:
         return lt(self, other)
 
     def __le__(self, other) -> Self:
-        return leq(self, other)
+        return le(self, other)
 
     def __gt__(self, other) -> Self:
         return gt(self, other)
 
     def __ge__(self, other) -> Self:
-        return geq(self, other)
+        return ge(self, other)
 
     def __eq__(self, other) -> Self:
         return eq(self, other)
 
     def __ne__(self, other) -> Self:
-        return neq(self, other)
+        return ne(self, other)
 
     def __matmul__(self, other) -> Self:
         return matmul(self, other)
