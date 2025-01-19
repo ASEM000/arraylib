@@ -139,7 +139,7 @@ Layout* layout_copy(Layout* dst, const Layout* src);
 
 void layout_free(Layout* lay);
 Layout** layout_broadcast(const Layout** lays, size_t nlay);
-
+NDArray* array_as_strided(const NDArray* src, const size_t* shape, const size_t* stride, size_t ndim);
 // -------------------------------------------------------------------------------------------------
 // ARRAY CREATION AND DESTRUCTION
 // -------------------------------------------------------------------------------------------------
@@ -196,6 +196,7 @@ NDArray* array_shallow_copy(const NDArray* array);
  */
 NDArray* array_deep_copy(const NDArray* array);
 
+NDArray* array_relayout(const NDArray* src, const Layout* lay);
 // -------------------------------------------------------------------------------------------------
 // INITIALIZATION
 // -------------------------------------------------------------------------------------------------

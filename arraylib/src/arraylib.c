@@ -20,7 +20,7 @@ void* alloc(size_t size) {
 // UTILS
 // -------------------------------------------------------------------------------------------------
 
-inline size_t prod(const size_t* nums, size_t ndim) {
+static inline size_t prod(const size_t* nums, size_t ndim) {
     assert(ndim > 0 && "ValueError: non-positive ndim");
     size_t total = 1;
     for (size_t i = 0; i < ndim; i++)
@@ -28,19 +28,19 @@ inline size_t prod(const size_t* nums, size_t ndim) {
     return total;
 }
 
-inline size_t* size_t_alloc(size_t ndim) {
+static inline size_t* size_t_alloc(size_t ndim) {
     assert(ndim > 0 && "ValueError: non-positive ndim");
     return (size_t*)alloc(sizeof(size_t) * ndim);
 }
 
-inline size_t* size_t_set(size_t* dst, size_t value, size_t size) {
+static inline size_t* size_t_set(size_t* dst, size_t value, size_t size) {
     assert(value >= 0 && "ValueError: negative size");
     for (size_t i = 0; i < size; i++)
         dst[i] = value;
     return dst;
 }
 
-inline size_t* size_t_copy(size_t* dst, const size_t* src, size_t size) {
+static inline size_t* size_t_copy(size_t* dst, const size_t* src, size_t size) {
     assert(src != NULL && "ValueError: src copy is NULL");
     return memcpy(dst, src, sizeof(size_t) * size);
 }
@@ -51,7 +51,7 @@ f32 clamp(f32 value, f32 minval, f32 maxval) {
     return value;
 }
 
-inline bool is_contiguous(const Layout* lay) {
+static inline bool is_contiguous(const Layout* lay) {
     size_t contiguous_stride = 1;
     for (ssize_t i = lay->ndim - 1; i >= 0; i--) {
         if (contiguous_stride != lay->stride[i]) return false;
@@ -60,26 +60,20 @@ inline bool is_contiguous(const Layout* lay) {
     return true;
 }
 
-inline size_t cdiv(size_t a, size_t b) { return (a + b - 1) / b; }
+static inline size_t cdiv(size_t a, size_t b) { return (a + b - 1) / b; }
 
-inline size_t* compute_stride(size_t* dst, const size_t* shape, const size_t ndim) {
+static inline size_t* compute_stride(size_t* dst, const size_t* shape, const size_t ndim) {
     dst[ndim - 1] = 1;
     for (ssize_t i = ndim - 2; i >= 0; i--)
         dst[i] = dst[i + 1] * shape[i + 1];
     return dst;
 }
 
-inline size_t index_flatten(const size_t* index, const Layout* lay) {
+static inline size_t index_flatten(const size_t* index, const Layout* lay) {
     size_t flat_index = 0;
     for (size_t i = 0; i < lay->ndim; i++)
         flat_index += index[i] * lay->stride[i];
     return flat_index;
-}
-
-inline size_t* index_unflatten(size_t* dst, size_t index, const Layout* lay) {
-    for (ssize_t i = lay->ndim - 1; i >= 0; i--)
-        dst[i] = (index % lay->shape[i]), index /= lay->shape[i];
-    return dst;
 }
 
 inline size_t offset_indexer(size_t index, const Layout* lay) {
@@ -137,7 +131,7 @@ bool is_same_shape(const Layout* lhs, const Layout* rhs) {
     return false;
 }
 
-inline bool is_broadcastable(const Layout* lhs, const Layout* rhs) {
+static inline bool is_broadcastable(const Layout* lhs, const Layout* rhs) {
     ssize_t li = lhs->ndim;
     ssize_t ri = rhs->ndim;
     while (--li >= 0 && --ri >= 0)
@@ -224,6 +218,35 @@ NDArray* array_deep_copy(const NDArray* src) {
     return dst;
 }
 
+NDArray* array_as_strided(
+        const NDArray* src,
+        const size_t* shape,
+        const size_t* stride,
+        size_t ndim) {
+    // Ensure the source array is not NULL
+    assert(src != NULL && "TypeError: source array is NULL.");
+
+    // Ensure the number of dimensions matches
+    assert(ndim > 0 && "ValueError: ndim must be positive.");
+
+    // Create a new NDArray as a view of the source array
+    NDArray* dst = (NDArray*)alloc(sizeof(NDArray));
+    dst->data = src->data;
+    dst->data->refs++;  // Increment reference count since this is a view
+    dst->view = true;
+
+    // Allocate and set the layout for the new view
+    dst->lay = layout_alloc(ndim);
+    dst->lay->shape = size_t_copy(dst->lay->shape, shape, ndim);
+    dst->lay->stride = size_t_copy(dst->lay->stride, stride, ndim);
+    dst->lay->ndim = ndim;
+
+    // Point to the same memory as the source array
+    dst->ptr = src->ptr;
+
+    return dst;
+}
+
 // -------------------------------------------------------------------------------------------------
 // INITIALIZATION
 // -------------------------------------------------------------------------------------------------
@@ -276,7 +299,7 @@ NDArray* array_linspace(f32 start, f32 end, f32 n) {
 // -------------------------------------------------------------------------------------------------
 
 f32 array_get_scalar_from_index(const NDArray* array, const size_t* index) {
-    return array->ptr[offset_indexer(index_flatten(index, array->lay), array->lay)];
+    return array->ptr[index_flatten(index, array->lay)];
 }
 
 NDArray* array_get_view_from_range(
@@ -738,16 +761,23 @@ NDArray* array_cat(const NDArray** arrays, size_t narray, const size_t* dims, si
 #pragma omp parallel for
     for (size_t i = 0; i < narray; i++) {
         size_t size = prod(arrays[i]->lay->shape, arrays[i]->lay->ndim);
+        Layout* temp_layout = layout_alloc(ref_ndim);
+        temp_layout->shape = size_t_copy(temp_layout->shape, dst->lay->shape, ref_ndim);
+        temp_layout->stride = size_t_copy(temp_layout->stride, dst->lay->stride, ref_ndim);
+
+        for (size_t k = 0; k < ndim; k++)
+            temp_layout->shape[dims[k]] = arrays[i]->lay->shape[dims[k]];
+
         for (size_t j = 0; j < size; j++) {
-            size_t* multi_index = index_unflatten(size_t_alloc(ref_ndim), j, arrays[i]->lay);
-            for (size_t k = 0; k < ndim; k++)
-                multi_index[dims[k]] += shape_offset[k];
             size_t src_offset = offset_indexer(j, arrays[i]->lay);
-            size_t dst_offset = index_flatten(multi_index, dst->lay);
+            size_t dst_offset = offset_indexer(j, temp_layout);
+            for (size_t k = 0; k < ndim; k++)
+                dst_offset += shape_offset[k] * dst->lay->stride[dims[k]];
+
             dst->ptr[dst_offset] = arrays[i]->ptr[src_offset];
-            FREE(multi_index);
         }
 
+        FREE(temp_layout);
         for (size_t k = 0; k < ndim; k++)
             shape_offset[k] += arrays[i]->lay->shape[dims[k]];
     }

@@ -707,3 +707,21 @@ def ppstr(array) -> str:
 
     recurse([], 0)
     return out.getvalue()
+
+
+
+## -------------------------------------------------------------------------------------------------
+## OTHER OPERATIONS
+## -------------------------------------------------------------------------------------------------
+
+
+def as_strided(array, shape, stride):
+    assert isinstance(array, NDArray)
+    assert isinstance(shape, tp.Sequence)
+    assert isinstance(stride, tp.Sequence)
+    assert all(isinstance(i, int) for i in shape)
+    assert all(isinstance(i, int) for i in stride)
+    assert len(shape) == len(stride)
+    shape = ffi.new("size_t[]", shape)
+    stride = ffi.new("size_t[]", stride)
+    return NDArray(lib.array_as_strided(array.buffer, shape, stride, len(shape)))
