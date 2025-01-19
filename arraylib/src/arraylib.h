@@ -8,7 +8,7 @@
 #ifndef ARRAYLIB_H
 #define ARRAYLIB_H
 
-#define BLOCK_SIZE 128
+#define BLOCK_SIZE 32
 
 #include <assert.h>
 #include <math.h>
@@ -58,7 +58,7 @@ typedef f32 (*uniop)(f32);
  */
 typedef struct {
     f32* mem;    /**< Pointer to the memory block. */
-    size_t size; /**< Size of the memory block. */
+    size_t size; /**< size of the memory block. */
     size_t refs; /**< Reference count for the memory block. */
 } Data;
 
@@ -77,6 +77,9 @@ typedef struct {
     Layout* lay; /**< Memory layout (shape, stride). */
     bool view;   /**< Flag indicating if this is a view. */
 } NDArray;
+
+typedef const NDArray* ArrayRef;
+typedef NDArray* ArrayMut;
 
 // -------------------------------------------------------------------------------------------------
 // FUNCTION DECLARATIONS
@@ -120,7 +123,7 @@ f32 clamp(f32 value, f32 minval, f32 maxval);
 
 /**
  * @brief Creates an empty Data structure with the given size.
- * @param size Size of the memory block.
+ * @param size const size_t* of the memory block.
  * @return Pointer to the created Data structure.
  *
  * @code
@@ -139,7 +142,7 @@ Layout* layout_copy(Layout* dst, const Layout* src);
 
 void layout_free(Layout* lay);
 Layout** layout_broadcast(const Layout** lays, size_t nlay);
-
+ArrayMut array_as_strided(ArrayRef src, const Layout* lay);
 // -------------------------------------------------------------------------------------------------
 // ARRAY CREATION AND DESTRUCTION
 // -------------------------------------------------------------------------------------------------
@@ -152,21 +155,21 @@ Layout** layout_broadcast(const Layout** lays, size_t nlay);
  *
  * @code
  * size_t shape[] = {2, 3};
- * NDArray* array = array_empty(shape, 2); // Creates a 2x3 empty array
+ * ArrayMut array = array_empty(shape, 2); // Creates a 2x3 empty array
  * @endcode
  */
-NDArray* array_empty(const size_t* shape, size_t ndim);
+ArrayMut array_empty(const size_t* shape, size_t ndim);
 
 /**
  * @brief Frees the memory allocated for an NDArray.
  * @param array Pointer to the NDArray to free.
  *
  * @code
- * NDArray* array = array_zeros((size_t[]){2, 2}, 2);
+ * ArrayMut array = array_zeros((size_t[]){2, 2}, 2);
  * array_free(array); // Frees the memory
  * @endcode
  */
-void array_free(NDArray* array);
+void array_free(ArrayMut array);
 
 // -------------------------------------------------------------------------------------------------
 // COPY
@@ -178,11 +181,11 @@ void array_free(NDArray* array);
  * @return Pointer to the shallow copy.
  *
  * @code
- * NDArray* array = array_zeros((size_t[]){2, 2}, 2);
- * NDArray* copy = array_shallow_copy(array); // Creates a shallow copy
+ * ArrayMut array = array_zeros((size_t[]){2, 2}, 2);
+ * ArrayMut copy = array_shallow_copy(array); // Creates a shallow copy
  * @endcode
  */
-NDArray* array_shallow_copy(const NDArray* array);
+ArrayMut array_shallow_copy(ArrayRef array);
 
 /**
  * @brief Creates a deep copy of an NDArray.
@@ -190,11 +193,11 @@ NDArray* array_shallow_copy(const NDArray* array);
  * @return Pointer to the deep copy.
  *
  * @code
- * NDArray* array = array_zeros((size_t[]){2, 2}, 2);
- * NDArray* copy = array_deep_copy(array); // Creates a deep copy
+ * ArrayMut array = array_zeros((size_t[]){2, 2}, 2);
+ * ArrayMut copy = array_deep_copy(array); // Creates a deep copy
  * @endcode
  */
-NDArray* array_deep_copy(const NDArray* array);
+ArrayMut array_deep_copy(ArrayRef array);
 
 // -------------------------------------------------------------------------------------------------
 // INITIALIZATION
@@ -208,10 +211,10 @@ NDArray* array_deep_copy(const NDArray* array);
  *
  * @code
  * size_t shape[] = {2, 3};
- * NDArray* array = array_zeros(shape, 2); // Creates a 2x3 array filled with zeros
+ * ArrayMut array = array_zeros(shape, 2); // Creates a 2x3 array filled with zeros
  * @endcode
  */
-NDArray* array_zeros(const size_t* shape, size_t ndim);
+ArrayMut array_zeros(const size_t* shape, size_t ndim);
 
 /**
  * @brief Creates an NDArray filled with the given elements.
@@ -223,10 +226,10 @@ NDArray* array_zeros(const size_t* shape, size_t ndim);
  * @code
  * f32 elems[] = {1.0, 2.0, 3.0, 4.0};
  * size_t shape[] = {2, 2};
- * NDArray* array = array_fill(elems, shape, 2); // Creates a 2x2 array with the given elements
+ * ArrayMut array = array_fill(elems, shape, 2); // Creates a 2x2 array with the given elements
  * @endcode
  */
-NDArray* array_fill(f32* elems, const size_t* shape, size_t ndim);
+ArrayMut array_fill(f32* elems, const size_t* shape, size_t ndim);
 
 /**
  * @brief Creates an NDArray filled with ones.
@@ -236,10 +239,10 @@ NDArray* array_fill(f32* elems, const size_t* shape, size_t ndim);
  *
  * @code
  * size_t shape[] = {2, 2};
- * NDArray* array = array_ones(shape, 2); // Creates a 2x2 array filled with ones
+ * ArrayMut array = array_ones(shape, 2); // Creates a 2x2 array filled with ones
  * @endcode
  */
-NDArray* array_ones(const size_t* shape, size_t ndim);
+ArrayMut array_ones(const size_t* shape, size_t ndim);
 
 /**
  * @brief Creates an NDArray with values ranging from start to end with a given step.
@@ -249,10 +252,10 @@ NDArray* array_ones(const size_t* shape, size_t ndim);
  * @return Pointer to the created NDArray.
  *
  * @code
- * NDArray* array = array_arange(0.0, 5.0, 1.0); // Creates an array [0.0, 1.0, 2.0, 3.0, 4.0]
+ * ArrayMut array = array_arange(0.0, 5.0, 1.0); // Creates an array [0.0, 1.0, 2.0, 3.0, 4.0]
  * @endcode
  */
-NDArray* array_arange(f32 start, f32 end, f32 step);
+ArrayMut array_arange(f32 start, f32 end, f32 step);
 
 /**
  * @brief Creates an NDArray with values linearly spaced between start and end.
@@ -262,10 +265,10 @@ NDArray* array_arange(f32 start, f32 end, f32 step);
  * @return Pointer to the created NDArray.
  *
  * @code
- * NDArray* array = array_linspace(0.0, 1.0, 5); // Creates an array [0.0, 0.25, 0.5, 0.75, 1.0]
+ * ArrayMut array = array_linspace(0.0, 1.0, 5); // Creates an array [0.0, 0.25, 0.5, 0.75, 1.0]
  * @endcode
  */
-NDArray* array_linspace(f32 start, f32 end, f32 n);
+ArrayMut array_linspace(f32 start, f32 end, f32 n);
 
 // -------------------------------------------------------------------------------------------------
 // GETTERS
@@ -279,10 +282,10 @@ NDArray* array_linspace(f32 start, f32 end, f32 n);
  *
  * @code
  * size_t index[] = {1, 1};
- * f32 value = array_get_scalar_from_index(array, index); // Gets the value at index (1, 1)
+ * f32 value = array_get_elem(array, index); // Gets the value at index (1, 1)
  * @endcode
  */
-f32 array_get_scalar_from_index(const NDArray* array, const size_t* index);
+f32 array_get_elem(ArrayRef array, const size_t* index);
 
 /**
  * @brief Gets a view of an NDArray from a range of indices.
@@ -296,11 +299,11 @@ f32 array_get_scalar_from_index(const NDArray* array, const size_t* index);
  * size_t start[] = {0, 0};
  * size_t end[] = {2, 2};
  * size_t step[] = {1, 1};
- * NDArray* view = array_get_view_from_range(array, start, end, step); // Gets a view of the array
+ * ArrayMut view = array_get_view(array, start, end, step); // Gets a view of the array
  * @endcode
  */
-NDArray* array_get_view_from_range(
-        const NDArray* array,
+ArrayMut array_get_view(
+        ArrayRef array,
         const size_t* start,
         const size_t* end,
         const size_t* step);
@@ -318,10 +321,10 @@ NDArray* array_get_view_from_range(
  *
  * @code
  * size_t index[] = {1, 1};
- * array_set_scalar_from_index(array, 5.0, index); // Sets the value at index (1, 1) to 5.0
+ * array_set_elem_from_scalar(array, 5.0, index); // Sets the value at index (1, 1) to 5.0
  * @endcode
  */
-NDArray* array_set_scalar_from_index(NDArray* array, f32 value, const size_t* index);
+ArrayMut array_set_elem_from_scalar(ArrayMut array, f32 value, const size_t* index);
 
 /**
  * @brief Sets a scalar value in an NDArray over a range of indices.
@@ -332,8 +335,8 @@ NDArray* array_set_scalar_from_index(NDArray* array, f32 value, const size_t* in
  * @param step Array of step sizes.
  * @return Pointer to the NDArray.
  */
-NDArray* array_set_scalar_from_range(
-        NDArray* array,
+ArrayMut array_set_view_from_scalar(
+        ArrayMut array,
         f32 value,
         const size_t* start,
         const size_t* end,
@@ -348,9 +351,9 @@ NDArray* array_set_scalar_from_range(
  * @param step Array of step sizes.
  * @return Pointer to the NDArray.
  */
-NDArray* array_set_view_from_array(
-        NDArray* dst,
-        const NDArray* src,
+ArrayMut array_set_view_from_array(
+        ArrayMut dst,
+        ArrayRef src,
         const size_t* start,
         const size_t* end,
         const size_t* step);
@@ -368,11 +371,11 @@ NDArray* array_set_view_from_array(
  *
  * @code
  * size_t new_shape[] = {4};
- * NDArray* reshaped = array_reshape(array, new_shape, 1); // Reshapes the array to a 1D array of
+ * ArrayMut reshaped = array_reshape(array, new_shape, 1); // Reshapes the array to a 1D array of
  * size 4
  * @endcode
  */
-NDArray* array_reshape(const NDArray* array, const size_t* shape, size_t ndim);
+ArrayMut array_reshape(ArrayRef array, const size_t* shape, size_t ndim);
 
 /**
  * @brief Transposes an NDArray according to the given destination axes.
@@ -382,10 +385,10 @@ NDArray* array_reshape(const NDArray* array, const size_t* shape, size_t ndim);
  *
  * @code
  * size_t dst[] = {1, 0};
- * NDArray* transposed = array_transpose(array, dst); // Transposes the array
+ * ArrayMut transposed = array_transpose(array, dst); // Transposes the array
  * @endcode
  */
-NDArray* array_transpose(const NDArray* array, const size_t* dst);
+ArrayMut array_transpose(ArrayRef array, const size_t* dst);
 
 /**
  * @brief Moves axes of an NDArray to new positions.
@@ -398,10 +401,10 @@ NDArray* array_transpose(const NDArray* array, const size_t* dst);
  * @code
  * size_t src[] = {0, 1};
  * size_t dst[] = {1, 0};
- * NDArray* moved = array_move_dim(array, src, dst, 2); // Swaps the axes
+ * ArrayMut moved = array_move_dim(array, src, dst, 2); // Swaps the axes
  * @endcode
  */
-NDArray* array_move_dim(const NDArray* array, const size_t* src, const size_t* dst, size_t ndim);
+ArrayMut array_move_dim(ArrayRef array, const size_t* src, const size_t* dst, size_t ndim);
 
 /**
  * @brief Flattens an NDArray into a 1D array.
@@ -409,10 +412,10 @@ NDArray* array_move_dim(const NDArray* array, const size_t* src, const size_t* d
  * @return Pointer to the flattened NDArray.
  *
  * @code
- * NDArray* flattened = array_ravel(array); // Flattens the array
+ * ArrayMut flattened = array_ravel(array); // Flattens the array
  * @endcode
  */
-NDArray* array_ravel(const NDArray* array);
+ArrayMut array_ravel(ArrayRef array);
 
 // -------------------------------------------------------------------------------------------------
 // ARRAY-SCALAR OPERATIONS
@@ -426,10 +429,25 @@ NDArray* array_ravel(const NDArray* array);
  * @return Pointer to the resulting NDArray.
  *
  * @code
- * NDArray* result = array_scalar_op(add, array, 5.0); // Adds 5.0 to each element
+ * ArrayMut result = array_scalar_op(add, array, 5.0); // Adds 5.0 to each element
  * @endcode
  */
-NDArray* array_scalar_op(binop fn, const NDArray* lhs, f32 rhs);
+ArrayMut array_scalar_op(binop fn, ArrayRef lhs, f32 rhs);
+
+ArrayMut array_scalar_sum(ArrayRef src, f32 rhs);
+ArrayMut array_scalar_sub(ArrayRef src, f32 rhs);
+ArrayMut array_scalar_mul(ArrayRef src, f32 rhs);
+ArrayMut array_scalar_div(ArrayRef src, f32 rhs);
+ArrayMut array_scalar_mod(ArrayRef src, f32 rhs);
+ArrayMut array_scalar_pow(ArrayRef src, f32 rhs);
+ArrayMut array_scalar_max(ArrayRef src, f32 rhs);
+ArrayMut array_scalar_min(ArrayRef src, f32 rhs);
+ArrayMut array_scalar_eq(ArrayRef src, f32 rhs);
+ArrayMut array_scalar_ne(ArrayRef src, f32 rhs);
+ArrayMut array_scalar_gt(ArrayRef src, f32 rhs);
+ArrayMut array_scalar_ge(ArrayRef src, f32 rhs);
+ArrayMut array_scalar_lt(ArrayRef src, f32 rhs);
+ArrayMut array_scalar_le(ArrayRef src, f32 rhs);
 
 // -------------------------------------------------------------------------------------------------
 // MATMUL
@@ -442,10 +460,10 @@ NDArray* array_scalar_op(binop fn, const NDArray* lhs, f32 rhs);
  * @return Pointer to the resulting NDArray.
  *
  * @code
- * NDArray* result = array_array_matmul(array1, array2); // Performs matrix multiplication
+ * ArrayMut result = array_array_matmul(array1, array2); // Performs matrix multiplication
  * @endcode
  */
-NDArray* array_array_matmul(const NDArray* lhs, const NDArray* rhs);
+ArrayMut array_array_matmul(ArrayRef lhs, ArrayRef rhs);
 
 // -------------------------------------------------------------------------------------------------
 // ARRAY-ARRAY OPERATIONS
@@ -459,10 +477,25 @@ NDArray* array_array_matmul(const NDArray* lhs, const NDArray* rhs);
  * @return Pointer to the resulting NDArray.
  *
  * @code
- * NDArray* result = array_array_scalar_op(add, array1, array2); // Adds two arrays element-wise
+ * ArrayMut result = array_array_op(add, array1, array2); // Adds two arrays element-wise
  * @endcode
  */
-NDArray* array_array_scalar_op(binop fn, const NDArray* lhs, const NDArray* rhs);
+ArrayMut array_array_op(binop fn, ArrayRef lhs, ArrayRef rhs);
+
+ArrayMut array_array_sum(ArrayRef lhs, ArrayRef rhs);
+ArrayMut array_array_sub(ArrayRef lhs, ArrayRef rhs);
+ArrayMut array_array_mul(ArrayRef lhs, ArrayRef rhs);
+ArrayMut array_array_div(ArrayRef lhs, ArrayRef rhs);
+ArrayMut array_array_mod(ArrayRef lhs, ArrayRef rhs);
+ArrayMut array_array_pow(ArrayRef lhs, ArrayRef rhs);
+ArrayMut array_array_max(ArrayRef lhs, ArrayRef rhs);
+ArrayMut array_array_min(ArrayRef lhs, ArrayRef rhs);
+ArrayMut array_array_eq(ArrayRef lhs, ArrayRef rhs);
+ArrayMut array_array_ne(ArrayRef lhs, ArrayRef rhs);
+ArrayMut array_array_gt(ArrayRef lhs, ArrayRef rhs);
+ArrayMut array_array_ge(ArrayRef lhs, ArrayRef rhs);
+ArrayMut array_array_lt(ArrayRef lhs, ArrayRef rhs);
+ArrayMut array_array_le(ArrayRef lhs, ArrayRef rhs);
 
 // -------------------------------------------------------------------------------------------------
 // ELEMENTWISE OPERATIONS
@@ -474,7 +507,27 @@ NDArray* array_array_scalar_op(binop fn, const NDArray* lhs, const NDArray* rhs)
  * @param array Pointer to the NDArray.
  * @return Pointer to the resulting NDArray.
  */
-NDArray* array_op(uniop fn, const NDArray* array);
+ArrayMut array_op(uniop fn, ArrayRef array);
+
+ArrayMut array_neg(ArrayRef src);
+ArrayMut array_abs(ArrayRef src);
+ArrayMut array_sqrt(ArrayRef src);
+ArrayMut array_exp(ArrayRef src);
+ArrayMut array_log(ArrayRef src);
+ArrayMut array_sin(ArrayRef src);
+ArrayMut array_cos(ArrayRef src);
+ArrayMut array_tan(ArrayRef src);
+ArrayMut array_asin(ArrayRef src);
+ArrayMut array_acos(ArrayRef src);
+ArrayMut array_atan(ArrayRef src);
+ArrayMut array_sinh(ArrayRef src);
+ArrayMut array_cosh(ArrayRef src);
+ArrayMut array_tanh(ArrayRef src);
+ArrayMut array_asinh(ArrayRef src);
+ArrayMut array_acosh(ArrayRef src);
+ArrayMut array_atanh(ArrayRef src);
+ArrayMut array_ceil(ArrayRef src);
+ArrayMut array_floor(ArrayRef src);
 
 // -------------------------------------------------------------------------------------------------
 // REDUCTION OPERATIONS
@@ -487,10 +540,10 @@ NDArray* array_op(uniop fn, const NDArray* array);
  * @return Pointer to the resulting NDArray.
  *
  * @code
- * NDArray* result = array_array_dot(array1, array2); // Computes the dot product
+ * ArrayMut result = array_array_dot(array1, array2); // Computes the dot product
  * @endcode
  */
-NDArray* array_array_dot(const NDArray* lhs, const NDArray* rhs);
+ArrayMut array_array_dot(ArrayRef lhs, ArrayRef rhs);
 
 /**
  * @brief Reduces an NDArray along specified dimensions using a binary operation.
@@ -503,15 +556,19 @@ NDArray* array_array_dot(const NDArray* lhs, const NDArray* rhs);
  *
  * @code
  * size_t axes[] = {0};
- * NDArray* result = array_reduce(add, array, axes, 1, 0.0); // Sums along the first dim
+ * ArrayMut result = array_reduce(add, array, axes, 1, 0.0); // Sums along the first dim
  * @endcode
  */
-NDArray* array_reduce(
+ArrayMut array_reduce(
         binop acc_fn,
-        const NDArray* src,
+        ArrayRef src,
         const size_t* reduce_dims,
         size_t reduce_ndim,
         f32 acc_init);
+
+ArrayMut array_reduce_sum(ArrayRef src, const size_t* reduce_dims, size_t reduce_ndim);
+ArrayMut array_reduce_max(ArrayRef src, const size_t* reduce_dims, size_t reduce_ndim);
+ArrayMut array_reduce_min(ArrayRef src, const size_t* reduce_dims, size_t reduce_ndim);
 
 // -------------------------------------------------------------------------------------------------
 // CONDITIONAL OPERATIONS
@@ -524,16 +581,10 @@ NDArray* array_reduce(
  * @param rhs Pointer to the on false NDArray.
  * @return Pointer to the resulting NDArray.
  */
-NDArray* array_array_array_where(const NDArray* cond, const NDArray* lhs, const NDArray* rhs);
-NDArray* array_array_scalar_where(const NDArray* cond, const NDArray* lhs, f32 rhs);
-NDArray* array_scalar_array_where(const NDArray* cond, f32 lhs, const NDArray* rhs);
-NDArray* array_scalar_scalar_where(const NDArray* cond, f32 lhs, f32 rhs);
-
-// -------------------------------------------------------------------------------------------------
-// JOIN OPERATIONS
-// -------------------------------------------------------------------------------------------------
-
-NDArray* array_cat(const NDArray** arrays, size_t narray, const size_t* dims, size_t ndim);
+ArrayMut array_array_array_where(ArrayRef cond, ArrayRef lhs, ArrayRef rhs);
+ArrayMut array_array_scalar_where(ArrayRef cond, ArrayRef lhs, f32 rhs);
+ArrayMut array_scalar_array_where(ArrayRef cond, f32 lhs, ArrayRef rhs);
+ArrayMut array_scalar_scalar_where(ArrayRef cond, f32 lhs, f32 rhs);
 
 // END
 

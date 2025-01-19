@@ -8,7 +8,6 @@ import math
 from typing_extensions import Self
 from io import StringIO
 import operator as op
-import dataclasses as dc
 
 ## -------------------------------------------------------------------------------------------------
 ## LIB
@@ -38,8 +37,7 @@ lib = ffi.dlopen(os.path.join(Path(__file__).parent, "src", "arraylib.so"))
 ## -------------------------------------------------------------------------------------------------
 
 
-@dc.dataclass
-class Layout:
+class Layout(tp.NamedTuple):
     shape: tuple[int, ...]
     stride: tuple[int, ...]
     ndim: int
@@ -78,13 +76,13 @@ class NDArray:
     def reshape(self, shape: tp.Sequence[int]) -> Self:
         return reshape(self, shape)
 
-    def sum(self, *, dims=None) -> Self:
+    def reduce_sum(self, *, dims=None) -> Self:
         return reduce_sum(self, dims=dims)
 
-    def max(self, *, dims=None) -> Self:
+    def reduce_max(self, *, dims=None) -> Self:
         return reduce_max(self, dims=dims)
 
-    def min(self, *, dims=None) -> Self:
+    def reduce_min(self, *, dims=None) -> Self:
         return reduce_min(self, dims=dims)
 
     def where(self, lhs, rhs) -> Self:
@@ -104,6 +102,9 @@ class NDArray:
 
     def ravel(self) -> Self:
         return ravel(self)
+
+    def as_strided(self, *, shape: tp.Sequence[int], stride: tp.Sequence[int]) -> Self:
+        return as_strided(self, shape, stride)
 
     @property
     def T(self) -> Self:
@@ -180,17 +181,38 @@ class NDArray:
     def __copy__(self) -> Self:
         return copy(self)
 
+    def __deepcopy__(self, memo) -> Self:
+        return copy(self, deep=True)
+
+    def __float__(self) -> float:
+        assert self.size == 1
+        return self.buffer.data.mem[0]
+
+    def __int__(self) -> int:
+        assert self.size == 1
+        return int(self.buffer.data.mem[0])
+
+    def __len__(self) -> int:
+        return self.size
+
+    def __array__(self, dtype=None, copy=None) -> Self:
+        return to_numpy(self)
+
 
 ## -------------------------------------------------------------------------------------------------
 ## UTILS
 ## -------------------------------------------------------------------------------------------------
 
 
+def cdiv(a, b):
+    return (a + b - 1) // b
+
+
 def slice_to_range(
     shape: tuple[int],
     ndim: int,
     slices: tp.Sequence[slice],
-) -> tuple[tuple[int, ...], tuple[int, ...], tuple[int, ...]]:
+) -> tuple[tp.Sequence[int], tp.Sequence[int], tuple[int, ...]]:
     assert isinstance(slices, tp.Sequence)
     assert all(isinstance(si, slice) for si in slices)
     assert len(slices) == ndim
@@ -206,6 +228,7 @@ def normalize_index(index: tp.Sequence[tp.Any] | int) -> tp.TypeGuard[tuple[tp.A
     return tuple(index) if isinstance(index, tp.Sequence) else (index,)
 
 
+@ft.cache
 def is_broadcastable(lhs: Layout, rhs: Layout) -> bool:
     li = lhs.ndim - 1
     ri = rhs.ndim - 1
@@ -345,25 +368,36 @@ def to_numpy(array: NDArray):
 ## -------------------------------------------------------------------------------------------------
 
 
-def generate_binary_op(op):
-    op = ffi.callback("float(float, float)")(op)
+def generate_binary_op(op: str):
 
-    def fn(lhs, rhs):
+    def wrapper(lhs, rhs):
         if isinstance(lhs, NDArray) and isinstance(rhs, NDArray):
             assert is_broadcastable(lhs.layout, rhs.layout), "cannot broadcast shapes"
-            return NDArray(lib.array_array_scalar_op(op, lhs.buffer, rhs.buffer))
+            libfn = getattr(lib, f"array_array_{op}")
+            return NDArray(libfn(lhs.buffer, rhs.buffer))
         if isinstance(lhs, NDArray) and isinstance(rhs, (int, float)):
-            return NDArray(lib.array_scalar_op(op, lhs.buffer, rhs))
+            libfn = getattr(lib, f"array_scalar_{op}")
+            return NDArray(libfn(lhs.buffer, rhs))
         raise NotImplementedError(f"Not supported for {type(lhs)=} and {type(rhs)=}")
 
-    return ft.wraps(op)(fn)
+    wrapper.__doc__ = f"Binary {op} operation"
+    wrapper.__name__ = f"array_array_{op}"
+    return wrapper
 
 
-add = generate_binary_op(op.add)
-sub = generate_binary_op(op.sub)
-mul = generate_binary_op(op.mul)
-div = generate_binary_op(op.truediv)
-pow = generate_binary_op(op.pow)
+add = generate_binary_op("sum")
+sub = generate_binary_op("sub")
+mul = generate_binary_op("mul")
+div = generate_binary_op("div")
+pow = generate_binary_op("pow")
+max = generate_binary_op("max")
+min = generate_binary_op("min")
+eq = generate_binary_op("eq")
+ne = generate_binary_op("ne")
+gt = generate_binary_op("gt")
+ge = generate_binary_op("ge")
+lt = generate_binary_op("lt")
+le = generate_binary_op("le")
 
 
 def matmul(lhs, rhs):
@@ -385,18 +419,37 @@ def dot(lhs, rhs):
 ## -------------------------------------------------------------------------------------------------
 
 
-def generate_unary_op(op):
-    op = ffi.callback("float(float)")(op)
+def generate_unary_op(op: str):
+    libfn = getattr(lib, f"array_{op}")
 
     def wrapper(array):
-        return NDArray(lib.array_op(op, array.buffer))
+        assert isinstance(array, NDArray)
+        return NDArray(libfn(array.buffer))
 
-    return ft.wraps(op)(wrapper)
+    wrapper.__doc__ = f"Elementwise {op} operation"
+    wrapper.__name__ = f"array_{op}"
+    return wrapper
 
 
-log = generate_unary_op(math.log)
-neg = generate_unary_op(lambda x: -x)
-exp = generate_unary_op(math.exp)
+neg = generate_unary_op("neg")
+abs = generate_unary_op("abs")
+sqrt = generate_unary_op("sqrt")
+exp = generate_unary_op("exp")
+log = generate_unary_op("log")
+sin = generate_unary_op("sin")
+cos = generate_unary_op("cos")
+tan = generate_unary_op("tan")
+asin = generate_unary_op("asin")
+acos = generate_unary_op("acos")
+atan = generate_unary_op("atan")
+sinh = generate_unary_op("sinh")
+cosh = generate_unary_op("cosh")
+tanh = generate_unary_op("tanh")
+asinh = generate_unary_op("asinh")
+acosh = generate_unary_op("acosh")
+atanh = generate_unary_op("atanh")
+ceil = generate_unary_op("ceil")
+floor = generate_unary_op("floor")
 
 
 def apply(fn, array):
@@ -454,28 +507,15 @@ def ravel(array):
 
 
 ## -------------------------------------------------------------------------------------------------
-## COMPARISON OPERATIONS
-## -------------------------------------------------------------------------------------------------
-
-
-eq = generate_binary_op(op.eq)
-neq = generate_binary_op(op.ne)
-leq = generate_binary_op(op.le)
-lt = generate_binary_op(op.lt)
-geq = generate_binary_op(op.ge)
-gt = generate_binary_op(op.gt)
-
-## -------------------------------------------------------------------------------------------------
 ## GETTERS
 ## -------------------------------------------------------------------------------------------------
 
 
 def get_view_from_range(
     array,
-    start: tuple[int, ...],
-    end: tuple[int, ...],
-    step: tuple[int, ...],
+    range: tuple[tp.Sequence[int], tp.Sequence[int], tp.Sequence[int]],
 ):
+    start, end, step = range
     assert isinstance(array, NDArray)
     assert isinstance(start, tuple)
     assert isinstance(end, tuple)
@@ -487,7 +527,7 @@ def get_view_from_range(
     start = ffi.new("size_t[]", start)
     end = ffi.new("size_t[]", end)
     step = ffi.new("size_t[]", step)
-    return NDArray(lib.array_get_view_from_range(array.buffer, start, end, step))
+    return NDArray(lib.array_get_view(array.buffer, start, end, step))
 
 
 def get_scalar_from_index(array, index: tp.Sequence[int]) -> int:
@@ -498,7 +538,7 @@ def get_scalar_from_index(array, index: tp.Sequence[int]) -> int:
     assert all(idx < array.shape[i] for i, idx in enumerate(index))
     index = tuple(index)
     index = ffi.new("size_t[]", index)
-    return lib.array_get_scalar_from_index(array.buffer, index)
+    return lib.array_get_elem(array.buffer, index)
 
 
 def getitem(array, index: int | slice | tp.Sequence[int | slice]):
@@ -508,7 +548,7 @@ def getitem(array, index: int | slice | tp.Sequence[int | slice]):
         return get_scalar_from_index(array, index)
     if all(isinstance(i, slice) for i in index):
         start, end, step = slice_to_range(array.shape, array.ndim, index)
-        return get_view_from_range(array, start, end, step)
+        return get_view_from_range(array, (start, end, step))
     raise NotImplementedError(f"Index type not supported: {index}")
 
 
@@ -517,27 +557,26 @@ def getitem(array, index: int | slice | tp.Sequence[int | slice]):
 ## -------------------------------------------------------------------------------------------------
 
 
-def set_scalar_from_index(array, value: float, index: tp.Sequence[int]):
+def set_elem_from_scalar(array, value: float, index: tp.Sequence[int]):
     assert isinstance(index, tp.Sequence)
     assert all(isinstance(i, int) for i in index)
     assert len(index) == array.ndim
     assert all(idx < array.shape[i] for i, idx in enumerate(index))
     index = tuple(index)
     index = ffi.new("size_t[]", index)
-    lib.array_set_scalar_from_index(array.buffer, value, index)
+    lib.array_set_elem_from_scalar(array.buffer, value, index)
     return array
 
 
-def set_scalar_from_range(
+def set_view_from_scalar(
     array,
-    start: tuple[int, ...],
-    end: tuple[int, ...],
-    step: tuple[int, ...],
     value: float,
+    index: tuple[tp.Sequence[int], tp.Sequence[int], tp.Sequence[int]],
 ):
-    assert isinstance(start, tuple)
-    assert isinstance(end, tuple)
-    assert isinstance(step, tuple)
+    start, end, step = index
+    assert isinstance(start, tp.Sequence)
+    assert isinstance(end, tp.Sequence)
+    assert isinstance(step, tp.Sequence)
     assert all(isinstance(i, int) for i in start)
     assert all(isinstance(i, int) for i in end)
     assert all(isinstance(i, int) for i in step)
@@ -548,24 +587,29 @@ def set_scalar_from_range(
     start = ffi.new("size_t[]", start)
     end = ffi.new("size_t[]", end)
     step = ffi.new("size_t[]", step)
-    lib.array_set_scalar_from_range(array.buffer, start, end, step, value)
+    lib.array_set_view_from_scalar(array.buffer, start, end, step, value)
     return array
 
 
 def set_view_from_array(
     array,
-    start: tuple[int, ...],
-    end: tuple[int, ...],
-    step: tuple[int, ...],
     value: NDArray,
+    index: tuple[tp.Sequence[int], tp.Sequence[int], tp.Sequence[int]],
 ):
-    assert isinstance(start, tuple)
-    assert isinstance(end, tuple)
-    assert isinstance(step, tuple)
+    start, end, step = index
+    assert isinstance(start, tp.Sequence)
+    assert isinstance(end, tp.Sequence)
+    assert isinstance(step, tp.Sequence)
     assert all(isinstance(i, int) for i in start)
     assert all(isinstance(i, int) for i in end)
     assert all(isinstance(i, int) for i in step)
+    ndim = array.ndim
+    assert ndim == value.ndim
     assert len(start) == len(end) == len(step) == value.ndim
+
+    for i in range(ndim):
+        print(cdiv(end[i] - start[i], step[i]), value.shape[i])
+    assert all(cdiv(end[i] - start[i], step[i]) == value.shape[i] for i in range(ndim))
     start = ffi.new("size_t[]", start)
     end = ffi.new("size_t[]", end)
     step = ffi.new("size_t[]", step)
@@ -584,15 +628,15 @@ def setitem(
 
     if all(isinstance(i, int) for i in index):
         assert isinstance(value, (float, int)), f"{type(value)=}"
-        return set_scalar_from_index(array, value, index)
+        return set_elem_from_scalar(array, value, index)
 
     if all(isinstance(i, slice) for i in index):
         start, end, step = slice_to_range(array.shape, array.ndim, index)
         if isinstance(value, (float, int)):
-            return set_scalar_from_range(array, start, end, step, value)
+            return set_view_from_scalar(array, value, (start, end, step))
         if isinstance(value, NDArray):
             start, end, step = slice_to_range(array.shape, array.ndim, index)
-            return set_view_from_array(array, start, end, step, value)
+            return set_view_from_array(array, value, (start, end, step))
         raise NotImplementedError(f"Value type not supported: {value}")
     raise NotImplementedError(f"Index type not supported: {index}")
 
@@ -629,9 +673,25 @@ def reduce(fn, array, dims=None, init=0.0):
     return NDArray(lib.array_reduce(wrapped, array.buffer, dims, len(dims), init))
 
 
-reduce_sum = ft.partial(reduce, lambda x, y: x + y)
-reduce_max = ft.partial(reduce, max, init=float("-inf"))
-reduce_min = ft.partial(reduce, min, init=float("inf"))
+def generate_reduce_op(op: str):
+    libfn = getattr(lib, f"array_reduce_{op}")
+
+    def wrapper(array, dims=None):
+        assert isinstance(array, NDArray)
+        dims = tuple(range(array.ndim)) if dims is None else tuple(dims)
+        assert all(isinstance(i, int) for i in dims)
+        assert all(0 <= i < array.ndim for i in dims)
+        dims = ffi.new("size_t[]", dims)
+        return NDArray(libfn(array.buffer, dims, len(dims)))
+
+    wrapper.__doc__ = f"Reduce an array along an axis with {op}"
+    wrapper.__name__ = f"array_reduce_{op}"
+    return wrapper
+
+
+reduce_sum = generate_reduce_op("sum")
+reduce_max = generate_reduce_op("max")
+reduce_min = generate_reduce_op("min")
 
 
 ## -------------------------------------------------------------------------------------------------
@@ -659,22 +719,33 @@ def where(cond, lhs, rhs):
 ## -------------------------------------------------------------------------------------------------
 
 
-def cat(arrays, dims: tp.Sequence[int]):
+def cat(arrays, dims: tp.Sequence[int] | None = None):
     assert isinstance(arrays, tp.Sequence)
     assert all(isinstance(array, NDArray) for array in arrays)
+    dims = dims or list(range(arrays[0].ndim))
     assert isinstance(dims, tp.Sequence)
     assert all(array.ndim == arrays[0].ndim for array in arrays)
-    ref = arrays[0].shape
-    check_shape = lambda s: all(s[i] == ref[i] for i in range(len(s)) if i not in dims)
 
+    no_cat_dims = [i for i in range(arrays[0].ndim) if i not in dims]
+    for dim in no_cat_dims:
+        assert all(a.shape[dim] == arrays[0].shape[dim] for a in arrays)
+
+    out_shape = [
+        sum(a.shape[i] for a in arrays) if i in dims else arrays[0].shape[i]
+        for i in range(arrays[0].ndim)
+    ]
+    out = zeros(out_shape)
+
+    step = [1] * len(out.shape)
+    start = [0] * len(out.shape)
+    end = list(0 if i in dims else o for i, o in enumerate(out.shape))
     for array in arrays:
-        assert check_shape(array.shape)
-        assert all(0 <= dim < array.shape[dim] for dim in dims)
-
-    narray = len(arrays)
-    ndim = len(dims)
-    buffers = [array.buffer for array in arrays]
-    return NDArray(lib.array_cat(buffers, narray, dims, ndim))
+        for dim in dims:
+            end[dim] += array.shape[dim]
+        out = set_view_from_array(out, array, (start, end, step))
+        for dim in dims:
+            start[dim] += array.shape[dim]
+    return out
 
 
 ## -------------------------------------------------------------------------------------------------
@@ -707,3 +778,25 @@ def ppstr(array) -> str:
 
     recurse([], 0)
     return out.getvalue()
+
+
+## -------------------------------------------------------------------------------------------------
+## OTHER OPERATIONS
+## -------------------------------------------------------------------------------------------------
+
+
+def as_strided(array, shape, stride):
+    assert isinstance(array, NDArray)
+    assert isinstance(shape, tp.Sequence)
+    assert isinstance(stride, tp.Sequence)
+    assert all(isinstance(i, int) for i in shape)
+    assert all(isinstance(i, int) for i in stride)
+    assert len(shape) == len(stride)
+    assert all(s > 0 for s in stride)
+    shape = ffi.new("size_t[]", shape)
+    stride = ffi.new("size_t[]", stride)
+    lay = ffi.new("Layout *")
+    lay.ndim = len(shape)
+    lay.shape = shape
+    lay.stride = stride
+    return NDArray(lib.array_as_strided(array.buffer, lay))

@@ -6,6 +6,49 @@
 // -------------------------------------------------------------------------------------------------
 
 // -------------------------------------------------------------------------------------------------
+// BINARY FUNCTIONS
+// -------------------------------------------------------------------------------------------------
+
+static inline f32 sum32(f32 lhs, f32 rhs) { return lhs + rhs; }
+static inline f32 sub32(f32 lhs, f32 rhs) { return lhs - rhs; }
+static inline f32 mul32(f32 lhs, f32 rhs) { return lhs * rhs; }
+static inline f32 div32(f32 lhs, f32 rhs) { return lhs / rhs; }
+static inline f32 mod32(f32 lhs, f32 rhs) { return fmod(lhs, rhs); }
+static inline f32 pow32(f32 lhs, f32 rhs) { return pow(lhs, rhs); }
+static inline f32 max32(f32 lhs, f32 rhs) { return fmax(lhs, rhs); }
+static inline f32 min32(f32 lhs, f32 rhs) { return fmin(lhs, rhs); }
+static inline f32 eq32(f32 lhs, f32 rhs) { return lhs == rhs; }
+static inline f32 ne32(f32 lhs, f32 rhs) { return lhs != rhs; }
+static inline f32 gt32(f32 lhs, f32 rhs) { return lhs > rhs; }
+static inline f32 ge32(f32 lhs, f32 rhs) { return lhs >= rhs; }
+static inline f32 lt32(f32 lhs, f32 rhs) { return lhs < rhs; }
+static inline f32 le32(f32 lhs, f32 rhs) { return lhs <= rhs; }
+
+// -------------------------------------------------------------------------------------------------
+// UNARY FUNCTIONS
+// -------------------------------------------------------------------------------------------------
+
+static inline f32 neg32(f32 value) { return -value; }
+static inline f32 abs32(f32 value) { return fabs(value); }
+static inline f32 exp32(f32 value) { return exp(value); }
+static inline f32 log32(f32 value) { return log(value); }
+static inline f32 sqrt32(f32 value) { return sqrt(value); }
+static inline f32 sin32(f32 value) { return sin(value); }
+static inline f32 cos32(f32 value) { return cos(value); }
+static inline f32 tan32(f32 value) { return tan(value); }
+static inline f32 asin32(f32 value) { return asin(value); }
+static inline f32 acos32(f32 value) { return acos(value); }
+static inline f32 atan32(f32 value) { return atan(value); }
+static inline f32 sinh32(f32 value) { return sinh(value); }
+static inline f32 cosh32(f32 value) { return cosh(value); }
+static inline f32 tanh32(f32 value) { return tanh(value); }
+static inline f32 asinh32(f32 value) { return asinh(value); }
+static inline f32 acosh32(f32 value) { return acosh(value); }
+static inline f32 atanh32(f32 value) { return atanh(value); }
+static inline f32 ceil32(f32 value) { return ceil(value); }
+static inline f32 floor32(f32 value) { return floor(value); }
+
+// -------------------------------------------------------------------------------------------------
 // MEMORY ALLOCATORS
 // -------------------------------------------------------------------------------------------------
 
@@ -20,7 +63,7 @@ void* alloc(size_t size) {
 // UTILS
 // -------------------------------------------------------------------------------------------------
 
-inline size_t prod(const size_t* nums, size_t ndim) {
+static inline size_t prod(const size_t* nums, size_t ndim) {
     assert(ndim > 0 && "ValueError: non-positive ndim");
     size_t total = 1;
     for (size_t i = 0; i < ndim; i++)
@@ -28,19 +71,19 @@ inline size_t prod(const size_t* nums, size_t ndim) {
     return total;
 }
 
-inline size_t* size_t_alloc(size_t ndim) {
+static inline size_t* size_t_alloc(size_t ndim) {
     assert(ndim > 0 && "ValueError: non-positive ndim");
     return (size_t*)alloc(sizeof(size_t) * ndim);
 }
 
-inline size_t* size_t_set(size_t* dst, size_t value, size_t size) {
+static inline size_t* size_t_set(size_t* dst, size_t value, size_t size) {
     assert(value >= 0 && "ValueError: negative size");
     for (size_t i = 0; i < size; i++)
         dst[i] = value;
     return dst;
 }
 
-inline size_t* size_t_copy(size_t* dst, const size_t* src, size_t size) {
+static inline size_t* size_t_copy(size_t* dst, const size_t* src, size_t size) {
     assert(src != NULL && "ValueError: src copy is NULL");
     return memcpy(dst, src, sizeof(size_t) * size);
 }
@@ -51,7 +94,7 @@ f32 clamp(f32 value, f32 minval, f32 maxval) {
     return value;
 }
 
-inline bool is_contiguous(const Layout* lay) {
+static inline bool is_contiguous(const Layout* lay) {
     size_t contiguous_stride = 1;
     for (ssize_t i = lay->ndim - 1; i >= 0; i--) {
         if (contiguous_stride != lay->stride[i]) return false;
@@ -60,26 +103,20 @@ inline bool is_contiguous(const Layout* lay) {
     return true;
 }
 
-inline size_t cdiv(size_t a, size_t b) { return (a + b - 1) / b; }
+static inline size_t cdiv(size_t a, size_t b) { return (a + b - 1) / b; }
 
-inline size_t* compute_stride(size_t* dst, const size_t* shape, const size_t ndim) {
+static inline size_t* compute_stride(size_t* dst, const size_t* shape, const size_t ndim) {
     dst[ndim - 1] = 1;
     for (ssize_t i = ndim - 2; i >= 0; i--)
         dst[i] = dst[i + 1] * shape[i + 1];
     return dst;
 }
 
-inline size_t index_flatten(const size_t* index, const Layout* lay) {
+static inline size_t index_flatten(const size_t* index, const Layout* lay) {
     size_t flat_index = 0;
     for (size_t i = 0; i < lay->ndim; i++)
         flat_index += index[i] * lay->stride[i];
     return flat_index;
-}
-
-inline size_t* index_unflatten(size_t* dst, size_t index, const Layout* lay) {
-    for (ssize_t i = lay->ndim - 1; i >= 0; i--)
-        dst[i] = (index % lay->shape[i]), index /= lay->shape[i];
-    return dst;
 }
 
 inline size_t offset_indexer(size_t index, const Layout* lay) {
@@ -137,7 +174,7 @@ bool is_same_shape(const Layout* lhs, const Layout* rhs) {
     return false;
 }
 
-inline bool is_broadcastable(const Layout* lhs, const Layout* rhs) {
+static inline bool is_broadcastable(const Layout* lhs, const Layout* rhs) {
     ssize_t li = lhs->ndim;
     ssize_t ri = rhs->ndim;
     while (--li >= 0 && --ri >= 0)
@@ -178,8 +215,8 @@ Layout** layout_broadcast(const Layout** lays, size_t nlay) {
 // ARRAY CREATION AND DESTRUCTION
 // -------------------------------------------------------------------------------------------------
 
-NDArray* array_empty(const size_t* shape, size_t ndim) {
-    NDArray* array = (NDArray*)alloc(sizeof(NDArray));
+ArrayMut array_empty(const size_t* shape, size_t ndim) {
+    ArrayMut array = (ArrayMut)alloc(sizeof(NDArray));
     array->lay = layout_alloc(ndim);  // contiguous lay
     array->lay->shape = size_t_copy(array->lay->shape, shape, ndim);
     array->lay->stride = compute_stride(array->lay->stride, shape, ndim);
@@ -189,7 +226,7 @@ NDArray* array_empty(const size_t* shape, size_t ndim) {
     return array;
 }
 
-void array_free(NDArray* array) {
+void array_free(ArrayMut array) {
     assert(array != NULL && "TypeError: array_free on NULL.");
     if (--array->data->refs == 0) {
         free(array->data->mem);
@@ -203,9 +240,9 @@ void array_free(NDArray* array) {
 // COPY
 // -------------------------------------------------------------------------------------------------
 
-NDArray* array_shallow_copy(const NDArray* src) {
+ArrayMut array_shallow_copy(ArrayRef src) {
     assert(src != NULL && "TypeError: shallow copy of NULL.");
-    NDArray* dst = (NDArray*)alloc(sizeof(NDArray));
+    ArrayMut dst = (ArrayMut)alloc(sizeof(NDArray));
     dst->ptr = src->ptr;
     dst->lay = layout_copy(layout_alloc(src->lay->ndim), src->lay);
     dst->data = src->data;
@@ -214,8 +251,8 @@ NDArray* array_shallow_copy(const NDArray* src) {
     return dst;
 }
 
-NDArray* array_deep_copy(const NDArray* src) {
-    NDArray* dst = array_empty(src->lay->shape, src->lay->ndim);
+ArrayMut array_deep_copy(ArrayRef src) {
+    ArrayMut dst = array_empty(src->lay->shape, src->lay->ndim);
     size_t size = prod(dst->lay->shape, dst->lay->ndim);
 
 #pragma omp parallel for
@@ -224,37 +261,50 @@ NDArray* array_deep_copy(const NDArray* src) {
     return dst;
 }
 
+ArrayMut array_as_strided(ArrayRef src, const Layout* lay) {
+    assert(lay->ndim > 0 && "ValueError: ndim must be positive.");
+    ArrayMut dst = (ArrayMut)alloc(sizeof(NDArray));
+    dst->data = src->data;
+    dst->data->refs++;
+    dst->view = true;
+    dst->lay = layout_alloc(lay->ndim);
+    dst->lay->shape = size_t_copy(dst->lay->shape, lay->shape, lay->ndim);
+    dst->lay->stride = size_t_copy(dst->lay->stride, lay->stride, lay->ndim);
+    dst->ptr = src->ptr;
+    return dst;
+}
+
 // -------------------------------------------------------------------------------------------------
 // INITIALIZATION
 // -------------------------------------------------------------------------------------------------
 
-NDArray* array_zeros(const size_t* shape, size_t ndim) {
-    NDArray* array = array_empty(shape, ndim);
+ArrayMut array_zeros(const size_t* shape, size_t ndim) {
+    ArrayMut array = array_empty(shape, ndim);
     size_t total = prod(shape, ndim);
     memset(array->data->mem, 0, sizeof(f32) * total);
     return array;
 }
 
-NDArray* array_fill(f32* elems, const size_t* shape, size_t ndim) {
+ArrayMut array_fill(f32* elems, const size_t* shape, size_t ndim) {
     size_t total = prod(shape, ndim);
-    NDArray* array = array_empty(shape, ndim);
+    ArrayMut array = array_empty(shape, ndim);
     for (size_t i = 0; i < total; i++)
         array->data->mem[i] = elems[i];
     return array;
 }
 
-NDArray* array_ones(const size_t* shape, size_t ndim) {
-    NDArray* array = array_empty(shape, ndim);
+ArrayMut array_ones(const size_t* shape, size_t ndim) {
+    ArrayMut array = array_empty(shape, ndim);
     size_t total = prod(shape, ndim);
     for (size_t i = 0; i < total; i++)
         array->data->mem[i] = 1.0f;
     return array;
 }
 
-NDArray* array_arange(f32 start, f32 end, f32 step) {
+ArrayMut array_arange(f32 start, f32 end, f32 step) {
     assert(start < end && start >= 0 && "ValueError: invalid array range.");
     size_t total = cdiv((end - start), step);  // [start, end)
-    NDArray* out_array = array_zeros((size_t[]){total}, 1);
+    ArrayMut out_array = array_zeros((size_t[]){total}, 1);
     size_t running = start;
     for (size_t i = 0; i < total; i++) {
         out_array->data->mem[i] = running;
@@ -263,9 +313,9 @@ NDArray* array_arange(f32 start, f32 end, f32 step) {
     return out_array;
 }
 
-NDArray* array_linspace(f32 start, f32 end, f32 n) {
+ArrayMut array_linspace(f32 start, f32 end, f32 n) {
     f32 dx = (end - start) / (n - 1);
-    NDArray* out_array = array_arange(0, n, 1);
+    ArrayMut out_array = array_arange(0, n, 1);
     for (size_t i = 0; i < out_array->data->size; i++)
         out_array->ptr[i] = start + out_array->ptr[i] * dx;
     return out_array;
@@ -275,15 +325,11 @@ NDArray* array_linspace(f32 start, f32 end, f32 n) {
 // GETTERS
 // -------------------------------------------------------------------------------------------------
 
-f32 array_get_scalar_from_index(const NDArray* array, const size_t* index) {
-    return array->ptr[offset_indexer(index_flatten(index, array->lay), array->lay)];
+f32 array_get_elem(ArrayRef array, const size_t* index) {
+    return array->ptr[index_flatten(index, array->lay)];
 }
 
-NDArray* array_get_view_from_range(
-        const NDArray* src,
-        const size_t* start,
-        const size_t* end,
-        const size_t* step) {
+ArrayMut array_get_view(ArrayRef src, const size_t* start, const size_t* end, const size_t* step) {
     for (size_t i = 0; i < src->lay->ndim; i++) {
         assert(start[i] < end[i] && start[i] >= 0 && "ValueError: invalid start.");
         assert(end[i] <= src->lay->shape[i] && "ValueError: invald end.");
@@ -297,7 +343,7 @@ NDArray* array_get_view_from_range(
         offset += start[i] * src->lay->stride[i];
     }
     assert(offset < src->data->size && "ValueError: offset >= size.");
-    NDArray* dst = array_shallow_copy(src);
+    ArrayMut dst = array_shallow_copy(src);
     FREE(dst->lay);
     dst->lay = vlay;
     dst->ptr = src->ptr + offset;
@@ -308,12 +354,12 @@ NDArray* array_get_view_from_range(
 // SETTERS
 // -------------------------------------------------------------------------------------------------
 
-NDArray* array_set_scalar_from_index(NDArray* array, f32 value, const size_t* index) {
+ArrayMut array_set_elem_from_scalar(ArrayMut array, f32 value, const size_t* index) {
     array->ptr[index_flatten(index, array->lay)] = value;
     return array;
 }
-NDArray* array_set_scalar_from_range(
-        NDArray* dst,
+ArrayMut array_set_view_from_scalar(
+        ArrayMut dst,
         f32 value,
         const size_t* start,
         const size_t* end,
@@ -328,19 +374,20 @@ NDArray* array_set_scalar_from_range(
     Layout* vlay = layout_alloc(dst->lay->ndim);
     for (size_t i = 0; i < ndim; i++) {
         vlay->shape[i] = cdiv(end[i] - start[i], step[i]);
-        vlay->shape[i] = dst->lay->stride[i] * step[i];
+        vlay->stride[i] = dst->lay->stride[i] * step[i];
     }
     f32* ptr = dst->ptr + index_flatten(start, dst->lay);
     size_t size = prod(vlay->shape, vlay->ndim);
 #pragma omp parallel
     for (size_t i = 0; i < size; i++)
-        ptr[offset_indexer(i, dst->lay)] = value;
+        ptr[offset_indexer(i, vlay)] = value;
+    FREE(vlay);
     return dst;
 }
 
-NDArray* array_set_view_from_array(
-        NDArray* dst,
-        const NDArray* src,
+ArrayMut array_set_view_from_array(
+        ArrayMut dst,
+        ArrayRef src,
         const size_t* start,
         const size_t* end,
         const size_t* step) {
@@ -364,6 +411,8 @@ NDArray* array_set_view_from_array(
 #pragma omp parallel for
     for (size_t i = 0; i < size; i++)
         pdst[offset_indexer(i, vlay)] = src->ptr[offset_indexer(i, src->lay)];
+
+    FREE(vlay);
     return dst;
 }
 
@@ -371,9 +420,9 @@ NDArray* array_set_view_from_array(
 // RESHAPING
 // -------------------------------------------------------------------------------------------------
 
-NDArray* array_reshape(const NDArray* src, const size_t* shape, size_t ndim) {
+ArrayMut array_reshape(ArrayRef src, const size_t* shape, size_t ndim) {
     assert(prod(shape, ndim) == src->data->size);
-    NDArray* dst = is_contiguous(src->lay) ? array_shallow_copy(src) : array_deep_copy(src);
+    ArrayMut dst = is_contiguous(src->lay) ? array_shallow_copy(src) : array_deep_copy(src);
     FREE(dst->lay);
     dst->lay = layout_alloc(ndim);
     dst->lay->shape = size_t_copy(dst->lay->shape, shape, ndim);
@@ -382,8 +431,8 @@ NDArray* array_reshape(const NDArray* src, const size_t* shape, size_t ndim) {
     return dst;
 }
 
-NDArray* array_transpose(const NDArray* src, const size_t* dims) {
-    NDArray* dst = is_contiguous(src->lay) ? array_shallow_copy(src) : array_deep_copy(src);
+ArrayMut array_transpose(ArrayRef src, const size_t* dims) {
+    ArrayMut dst = is_contiguous(src->lay) ? array_shallow_copy(src) : array_deep_copy(src);
     size_t ndim = src->lay->ndim;
     Layout* original_layout = layout_copy(layout_alloc(src->lay->ndim), src->lay);
     for (size_t i = 0; i < ndim; i++) {
@@ -394,7 +443,7 @@ NDArray* array_transpose(const NDArray* src, const size_t* dims) {
     return dst;
 }
 
-NDArray* array_move_dim(const NDArray* src, const size_t* from, const size_t* to, size_t ndim) {
+ArrayMut array_move_dim(ArrayRef src, const size_t* from, const size_t* to, size_t ndim) {
     for (size_t i = 0; i < ndim; i++) {
         assert(from[i] >= 0 && from[i] < src->lay->ndim && "ValueError: out of bounds");
         assert(from[i] >= 0 && from[i] < src->lay->ndim && "ValueError: out of bounds");
@@ -405,7 +454,7 @@ NDArray* array_move_dim(const NDArray* src, const size_t* from, const size_t* to
 
     for (size_t i = 0; i < ndim; i++)
         bucket[from[i]] = 1;  // mark used dimension
-    NDArray* dst = is_contiguous(src->lay) ? array_shallow_copy(src) : array_deep_copy(src);
+    ArrayMut dst = is_contiguous(src->lay) ? array_shallow_copy(src) : array_deep_copy(src);
     size_t to_from[src->lay->ndim];
     size_t_set(to_from, ITERDIM, src->lay->ndim);
     for (size_t i = 0; i < ndim; i++)
@@ -427,9 +476,9 @@ NDArray* array_move_dim(const NDArray* src, const size_t* from, const size_t* to
     return dst;
 }
 
-NDArray* array_ravel(const NDArray* src) {
+ArrayMut array_ravel(ArrayRef src) {
     size_t total = prod(src->lay->shape, src->lay->ndim);
-    NDArray* dst = is_contiguous(src->lay) ? array_shallow_copy(src) : array_deep_copy(src);
+    ArrayMut dst = is_contiguous(src->lay) ? array_shallow_copy(src) : array_deep_copy(src);
     FREE(dst->lay);
     dst->lay = layout_alloc(1);
     dst->lay->shape = size_t_set(size_t_alloc(1), total, 1);
@@ -441,8 +490,8 @@ NDArray* array_ravel(const NDArray* src) {
 // ARRAY-SCALAR OPERATIONS
 // -------------------------------------------------------------------------------------------------
 
-NDArray* array_scalar_op(binop fn, const NDArray* src, f32 rhs) {
-    NDArray* dst = array_empty(src->lay->shape, src->lay->ndim);
+ArrayMut array_scalar_op(binop fn, ArrayRef src, f32 rhs) {
+    ArrayMut dst = array_empty(src->lay->shape, src->lay->ndim);
     size_t size = prod(src->lay->shape, src->lay->ndim);
     // #pragma omp parallel for
     for (size_t i = 0; i < size; i++) {
@@ -453,18 +502,33 @@ NDArray* array_scalar_op(binop fn, const NDArray* src, f32 rhs) {
     return dst;
 }
 
+ArrayMut array_scalar_sum(ArrayRef src, f32 rhs) { return array_scalar_op(sum32, src, rhs); }
+ArrayMut array_scalar_sub(ArrayRef src, f32 rhs) { return array_scalar_op(sub32, src, rhs); }
+ArrayMut array_scalar_mul(ArrayRef src, f32 rhs) { return array_scalar_op(mul32, src, rhs); }
+ArrayMut array_scalar_div(ArrayRef src, f32 rhs) { return array_scalar_op(div32, src, rhs); }
+ArrayMut array_scalar_mod(ArrayRef src, f32 rhs) { return array_scalar_op(mod32, src, rhs); }
+ArrayMut array_scalar_pow(ArrayRef src, f32 rhs) { return array_scalar_op(pow32, src, rhs); }
+ArrayMut array_scalar_max(ArrayRef src, f32 rhs) { return array_scalar_op(max32, src, rhs); }
+ArrayMut array_scalar_min(ArrayRef src, f32 rhs) { return array_scalar_op(min32, src, rhs); }
+ArrayMut array_scalar_eq(ArrayRef src, f32 rhs) { return array_scalar_op(eq32, src, rhs); }
+ArrayMut array_scalar_ne(ArrayRef src, f32 rhs) { return array_scalar_op(ne32, src, rhs); }
+ArrayMut array_scalar_gt(ArrayRef src, f32 rhs) { return array_scalar_op(gt32, src, rhs); }
+ArrayMut array_scalar_ge(ArrayRef src, f32 rhs) { return array_scalar_op(ge32, src, rhs); }
+ArrayMut array_scalar_lt(ArrayRef src, f32 rhs) { return array_scalar_op(lt32, src, rhs); }
+ArrayMut array_scalar_le(ArrayRef src, f32 rhs) { return array_scalar_op(le32, src, rhs); }
+
 // -------------------------------------------------------------------------------------------------
 // MATMUL
 // -------------------------------------------------------------------------------------------------
 
-NDArray* array_array_matmul(const NDArray* lhs, const NDArray* rhs) {
+ArrayMut array_array_matmul(ArrayRef lhs, ArrayRef rhs) {
     assert(lhs->lay->ndim == 2 && rhs->lay->ndim == 2);
     assert(lhs->lay->shape[1] == rhs->lay->shape[0]);
     size_t M = lhs->lay->shape[0];
     size_t N = rhs->lay->shape[1];
     size_t K = lhs->lay->shape[1];
 
-    NDArray* out = array_zeros((size_t[]){M, N}, 2);
+    ArrayMut out = array_zeros((size_t[]){M, N}, 2);
 
     f32* plhs = lhs->ptr;
     f32* prhs = rhs->ptr;
@@ -504,14 +568,14 @@ NDArray* array_array_matmul(const NDArray* lhs, const NDArray* rhs) {
 // ARRAY-ARRAY OPERATIONS
 // -------------------------------------------------------------------------------------------------
 
-NDArray* array_array_scalar_op(binop fn, const NDArray* lhs, const NDArray* rhs) {
+ArrayMut array_array_op(binop fn, ArrayRef lhs, ArrayRef rhs) {
     assert(is_broadcastable(lhs->lay, rhs->lay) && "ValueError: can not broadcast.");
     const Layout* lays[2] = {lhs->lay, rhs->lay};
     Layout** blays = layout_broadcast(lays, 2);
     Layout* lhs_blay = blays[0];
     Layout* rhs_blay = blays[1];
     size_t size = prod(lhs_blay->shape, lhs_blay->ndim);
-    NDArray* out = array_empty(lhs_blay->shape, lhs_blay->ndim);
+    ArrayMut out = array_empty(lhs_blay->shape, lhs_blay->ndim);
 
 #pragma omp parallel for
     for (size_t i = 0; i < size; i++) {
@@ -526,12 +590,27 @@ NDArray* array_array_scalar_op(binop fn, const NDArray* lhs, const NDArray* rhs)
     return out;
 }
 
+ArrayMut array_array_sum(ArrayRef lhs, ArrayRef rhs) { return array_array_op(sum32, lhs, rhs); }
+ArrayMut array_array_sub(ArrayRef lhs, ArrayRef rhs) { return array_array_op(sub32, lhs, rhs); }
+ArrayMut array_array_mul(ArrayRef lhs, ArrayRef rhs) { return array_array_op(mul32, lhs, rhs); }
+ArrayMut array_array_div(ArrayRef lhs, ArrayRef rhs) { return array_array_op(div32, lhs, rhs); }
+ArrayMut array_array_mod(ArrayRef lhs, ArrayRef rhs) { return array_array_op(mod32, lhs, rhs); }
+ArrayMut array_array_pow(ArrayRef lhs, ArrayRef rhs) { return array_array_op(pow32, lhs, rhs); }
+ArrayMut array_array_max(ArrayRef lhs, ArrayRef rhs) { return array_array_op(max32, lhs, rhs); }
+ArrayMut array_array_min(ArrayRef lhs, ArrayRef rhs) { return array_array_op(min32, lhs, rhs); }
+ArrayMut array_array_eq(ArrayRef lhs, ArrayRef rhs) { return array_array_op(eq32, lhs, rhs); }
+ArrayMut array_array_ne(ArrayRef lhs, ArrayRef rhs) { return array_array_op(ne32, lhs, rhs); }
+ArrayMut array_array_gt(ArrayRef lhs, ArrayRef rhs) { return array_array_op(gt32, lhs, rhs); }
+ArrayMut array_array_ge(ArrayRef lhs, ArrayRef rhs) { return array_array_op(ge32, lhs, rhs); }
+ArrayMut array_array_lt(ArrayRef lhs, ArrayRef rhs) { return array_array_op(lt32, lhs, rhs); }
+ArrayMut array_array_le(ArrayRef lhs, ArrayRef rhs) { return array_array_op(le32, lhs, rhs); }
+
 // -------------------------------------------------------------------------------------------------
 // ELEMENTWISE OPERATIONS
 // -------------------------------------------------------------------------------------------------
 
-NDArray* array_op(uniop fn, const NDArray* src) {
-    NDArray* dst = array_empty(src->lay->shape, src->lay->ndim);
+ArrayMut array_op(uniop fn, ArrayRef src) {
+    ArrayMut dst = array_empty(src->lay->shape, src->lay->ndim);
     size_t size = prod(src->lay->shape, src->lay->ndim);
 #pragma omp parallel for
     for (size_t i = 0; i < size; i++)
@@ -539,11 +618,31 @@ NDArray* array_op(uniop fn, const NDArray* src) {
     return dst;
 }
 
+ArrayMut array_neg(ArrayRef src) { return array_op(neg32, src); }
+ArrayMut array_abs(ArrayRef src) { return array_op(abs32, src); }
+ArrayMut array_sqrt(ArrayRef src) { return array_op(sqrt32, src); }
+ArrayMut array_exp(ArrayRef src) { return array_op(exp32, src); }
+ArrayMut array_log(ArrayRef src) { return array_op(log32, src); }
+ArrayMut array_sin(ArrayRef src) { return array_op(sin32, src); }
+ArrayMut array_cos(ArrayRef src) { return array_op(cos32, src); }
+ArrayMut array_tan(ArrayRef src) { return array_op(tan32, src); }
+ArrayMut array_asin(ArrayRef src) { return array_op(asin32, src); }
+ArrayMut array_acos(ArrayRef src) { return array_op(acos32, src); }
+ArrayMut array_atan(ArrayRef src) { return array_op(atan32, src); }
+ArrayMut array_sinh(ArrayRef src) { return array_op(sinh32, src); }
+ArrayMut array_cosh(ArrayRef src) { return array_op(cosh32, src); }
+ArrayMut array_tanh(ArrayRef src) { return array_op(tanh32, src); }
+ArrayMut array_asinh(ArrayRef src) { return array_op(asinh32, src); }
+ArrayMut array_acosh(ArrayRef src) { return array_op(acosh32, src); }
+ArrayMut array_atanh(ArrayRef src) { return array_op(atanh32, src); }
+ArrayMut array_ceil(ArrayRef src) { return array_op(ceil32, src); }
+ArrayMut array_floor(ArrayRef src) { return array_op(floor32, src); }
+
 // -------------------------------------------------------------------------------------------------
 // REDUCTION OPERATIONS
 // -------------------------------------------------------------------------------------------------
 
-NDArray* array_array_dot(const NDArray* lhs, const NDArray* rhs) {
+ArrayMut array_array_dot(ArrayRef lhs, ArrayRef rhs) {
     assert(lhs->lay->ndim == 1 && "ValueError: lhs dimension != 1 for dot.");
     assert(rhs->lay->ndim == 1 && "ValueError: rhs dimension != 1 for dot.");
     assert(lhs->lay->shape[0] == rhs->lay->shape[0] && "ValueError: dot shape mismatch.");
@@ -557,14 +656,14 @@ NDArray* array_array_dot(const NDArray* lhs, const NDArray* rhs) {
         acc += (lval * rval);
     }
 
-    NDArray* out = array_empty((size_t[]){1}, 1);
+    ArrayMut out = array_empty((size_t[]){1}, 1);
     out->ptr[0] = acc;
     return out;
 }
 
-NDArray* array_reduce(
+ArrayMut array_reduce(
         binop acc_fn,
-        const NDArray* src,
+        ArrayRef src,
         const size_t* reduce_dims,
         size_t reduce_ndim,
         f32 acc_init) {
@@ -581,65 +680,78 @@ NDArray* array_reduce(
     for (size_t i = 0; i < src->lay->ndim; i++)
         dst_shape[i] = is_reduce_dim[i] ? 1 : src->lay->shape[i];
 
-    NDArray* dst = array_empty(dst_shape, src->lay->ndim);
+    ArrayMut dst = array_empty(dst_shape, src->lay->ndim);
 
     // NOTE: moving from src offset to dst offset simply zeros-out
     // any movement along reduced axes by setting stride=0.
-    Layout* src_to_dst_layout = layout_copy(layout_alloc(src->lay->ndim), src->lay);
+    Layout* src_to_dst_layout = layout_alloc(src->lay->ndim);
 
     size_t dst_size = prod(dst->lay->shape, dst->lay->ndim);
     size_t src_size = prod(src->lay->shape, src->lay->ndim);
 
-    for (size_t i = 0; i < src->lay->ndim; i++)
+    for (size_t i = 0; i < src->lay->ndim; i++) {
         src_to_dst_layout->stride[i] = (is_reduce_dim[i]) ? 0 : dst->lay->stride[i];
+        src_to_dst_layout->shape[i] = src->lay->shape[i];
+    }
 
+#pragma omp parallel for
     for (size_t i = 0; i < dst_size; i++)
-        dst->ptr[offset_indexer(i, dst->lay)] = acc_init;
-
-    f32* tmp_buffer = (f32*)alloc(sizeof(f32) * dst_size);
-    for (size_t i = 0; i < dst_size; i++)
-        tmp_buffer[i] = acc_init;
+        dst->ptr[i] = acc_init;
 
     for (size_t i = 0; i < dst_size; i++)
         dst->ptr[i] = acc_init;
 
 #pragma omp parallel
     {
-        f32* private_buffer = (f32*)malloc(sizeof(f32) * dst_size);
+        f32* local_acc = (f32*)malloc(sizeof(f32) * dst_size);
         for (size_t i = 0; i < dst_size; i++)
-            private_buffer[i] = acc_init;
+            local_acc[i] = acc_init;
 
-#pragma omp for
-        for (size_t i = 0; i < src_size; i++) {
-            size_t src_offset = offset_indexer(i, src->lay);
-            f32 src_val = src->ptr[src_offset];
-
-            size_t dst_offset = offset_indexer(i, src_to_dst_layout);
-            private_buffer[dst_offset] = acc_fn(private_buffer[dst_offset], src_val);
+#pragma omp for schedule(static)
+        for (size_t bi = 0; bi < src_size; bi += BLOCK_SIZE) {
+            size_t bf = (BLOCK_SIZE + bi < src_size) ? BLOCK_SIZE + bi : src_size;
+            for (size_t i = bi; i < bf; i++) {
+                size_t src_offset = offset_indexer(i, src->lay);
+                size_t dst_offset = offset_indexer(i, src_to_dst_layout);
+                local_acc[dst_offset] = acc_fn(local_acc[dst_offset], src->ptr[src_offset]);
+            }
         }
 
 #pragma omp critical
         {
             for (size_t i = 0; i < dst_size; i++)
-                dst->ptr[i] = acc_fn(dst->ptr[i], private_buffer[i]);
+                dst->ptr[i] = acc_fn(dst->ptr[i], local_acc[i]);
         }
-        free(private_buffer);
+        FREE(local_acc);
     }
 
+    FREE(src_to_dst_layout);
     return dst;
+}
+
+ArrayMut array_reduce_sum(ArrayRef src, const size_t* reduce_dims, size_t reduce_ndim) {
+    return array_reduce(sum32, src, reduce_dims, reduce_ndim, 0.0f);
+}
+
+ArrayMut array_reduce_max(ArrayRef src, const size_t* reduce_dims, size_t reduce_ndim) {
+    return array_reduce(max32, src, reduce_dims, reduce_ndim, -INFINITY);
+}
+
+ArrayMut array_reduce_min(ArrayRef src, const size_t* reduce_dims, size_t reduce_ndim) {
+    return array_reduce(min32, src, reduce_dims, reduce_ndim, INFINITY);
 }
 
 // -------------------------------------------------------------------------------------------------
 // CONDITIONAL OPERATIONS
 // -------------------------------------------------------------------------------------------------
 
-NDArray* array_array_array_where(const NDArray* cond, const NDArray* lhs, const NDArray* rhs) {
+ArrayMut array_array_array_where(ArrayRef cond, ArrayRef lhs, ArrayRef rhs) {
     assert(cond->lay->ndim == lhs->lay->ndim && lhs->lay->ndim && rhs->lay->ndim);
     for (size_t i = 0; i < lhs->lay->ndim; i++)
         assert(cond->lay->shape[i] == lhs->lay->shape[i]
                && lhs->lay->shape[i] == rhs->lay->shape[i]);
 
-    NDArray* dst = array_empty(cond->lay->shape, cond->lay->ndim);
+    ArrayMut dst = array_empty(cond->lay->shape, cond->lay->ndim);
     size_t size = prod(cond->lay->shape, cond->lay->ndim);
 
 #pragma omp parallel for
@@ -653,12 +765,12 @@ NDArray* array_array_array_where(const NDArray* cond, const NDArray* lhs, const 
     return dst;
 }
 
-NDArray* array_array_scalar_where(const NDArray* cond, const NDArray* lhs, f32 rhs) {
+ArrayMut array_array_scalar_where(ArrayRef cond, ArrayRef lhs, f32 rhs) {
     assert(cond->lay->ndim == lhs->lay->ndim && lhs->lay->ndim);
     for (size_t i = 0; i < lhs->lay->ndim; i++)
         assert(cond->lay->shape[i] == lhs->lay->shape[i]);
 
-    NDArray* dst = array_empty(lhs->lay->shape, lhs->lay->ndim);
+    ArrayMut dst = array_empty(lhs->lay->shape, lhs->lay->ndim);
     size_t size = prod(cond->lay->shape, cond->lay->ndim);
 
 #pragma omp parallel for
@@ -671,12 +783,12 @@ NDArray* array_array_scalar_where(const NDArray* cond, const NDArray* lhs, f32 r
     return dst;
 }
 
-NDArray* array_scalar_array_where(const NDArray* cond, f32 lhs, const NDArray* rhs) {
+ArrayMut array_scalar_array_where(ArrayRef cond, f32 lhs, ArrayRef rhs) {
     assert(cond->lay->ndim && rhs->lay->ndim);
     for (size_t i = 0; i < rhs->lay->ndim; i++)
         assert(cond->lay->shape[i] == rhs->lay->shape[i]);
 
-    NDArray* dst = array_empty(rhs->lay->shape, rhs->lay->ndim);
+    ArrayMut dst = array_empty(rhs->lay->shape, rhs->lay->ndim);
     size_t size = prod(cond->lay->shape, cond->lay->ndim);
 
 #pragma omp parallel for
@@ -688,70 +800,13 @@ NDArray* array_scalar_array_where(const NDArray* cond, f32 lhs, const NDArray* r
     return dst;
 }
 
-NDArray* array_scalar_scalar_where(const NDArray* cond, f32 lhs, f32 rhs) {
-    NDArray* dst = array_empty(cond->lay->shape, cond->lay->ndim);
+ArrayMut array_scalar_scalar_where(ArrayRef cond, f32 lhs, f32 rhs) {
+    ArrayMut dst = array_empty(cond->lay->shape, cond->lay->ndim);
     size_t size = prod(cond->lay->shape, cond->lay->ndim);
 
 #pragma omp parallel for
     for (size_t i = 0; i < size; i++)
         dst->ptr[i] = cond->ptr[offset_indexer(i, cond->lay)] ? lhs : rhs;
 
-    return dst;
-}
-
-// -------------------------------------------------------------------------------------------------
-// JOIN OPERATIONS
-// -------------------------------------------------------------------------------------------------
-
-NDArray* array_cat(const NDArray** arrays, size_t narray, const size_t* dims, size_t ndim) {
-    size_t ref_ndim = arrays[0]->lay->ndim;
-    for (size_t i = 1; i < narray; i++)
-        assert(arrays[i]->lay->ndim == ref_ndim && "ValueError: dimension mismatch.");
-
-    size_t* out_shape = size_t_copy(size_t_alloc(ref_ndim), arrays[0]->lay->shape, ref_ndim);
-
-    for (size_t i = 0; i < ndim; i++) {
-        size_t dim = dims[i];
-        out_shape[dim] = 0;
-        for (size_t j = 0; j < narray; j++)
-            out_shape[dim] += arrays[j]->lay->shape[dim];
-    }
-
-    for (size_t i = 0; i < ref_ndim; i++) {
-        bool is_concat_dim = false;
-        for (size_t j = 0; j < ndim; j++) {
-            if (dims[j] == i) {
-                is_concat_dim = true;
-                break;
-            }
-        }
-        if (!is_concat_dim)
-            for (size_t j = 1; j < narray; j++)
-                assert(arrays[j]->lay->shape[i] == arrays[0]->lay->shape[i]
-                       && "ValueError: non-concat dimensions must have the same size.");
-    }
-
-    NDArray* dst = array_zeros(out_shape, ref_ndim);
-    FREE(out_shape);
-    size_t* shape_offset = size_t_set(size_t_alloc(ndim), 0, ndim);
-
-#pragma omp parallel for
-    for (size_t i = 0; i < narray; i++) {
-        size_t size = prod(arrays[i]->lay->shape, arrays[i]->lay->ndim);
-        for (size_t j = 0; j < size; j++) {
-            size_t* multi_index = index_unflatten(size_t_alloc(ref_ndim), j, arrays[i]->lay);
-            for (size_t k = 0; k < ndim; k++)
-                multi_index[dims[k]] += shape_offset[k];
-            size_t src_offset = offset_indexer(j, arrays[i]->lay);
-            size_t dst_offset = index_flatten(multi_index, dst->lay);
-            dst->ptr[dst_offset] = arrays[i]->ptr[src_offset];
-            FREE(multi_index);
-        }
-
-        for (size_t k = 0; k < ndim; k++)
-            shape_offset[k] += arrays[i]->lay->shape[dims[k]];
-    }
-
-    FREE(shape_offset);
     return dst;
 }

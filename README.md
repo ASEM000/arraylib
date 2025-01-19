@@ -18,7 +18,7 @@ import math
 a = (
     al.arange(1, 1 + 3 * 4 * 5 * 6)
     .reshape((3, 4, 5, 6))
-    .sum(dims=(1, 2))
+    .reduce_sum(dims=(1, 2))
     .apply(lambda x: math.sqrt(x))
     .reshape((3, 6))
     .transpose((1, 0))
@@ -26,6 +26,9 @@ a = (
 
 # broadcasting
 b = al.ones([3, 6]) + al.ones([6]) + al.ones([4, 3, 1]) + 1.0
+
+# stride tricks
+c = al.arange(1, 11).as_strided(shape=(8, 3), stride=(1, 1)).reduce_sum(dims=[0])
 ```
 
-NOTE: `omp` is supported if compiled with the appropriate flags with `gcc` or `clang`.
+NOTE: `omp` is supported if compiled with the appropriate flags (e.g. `-fopenmp`)
