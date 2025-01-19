@@ -14,7 +14,7 @@ def timeit(func, *args, **kwargs):
 
 
 if __name__ == "__main__":
-    size = 1_000
+    size = 1_024
     shape = (size, size)
     shape_1d = (size * size,)
 

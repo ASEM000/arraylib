@@ -1,5 +1,6 @@
 
 #include "arraylib.h"
+#include "simd.h"
 
 // -------------------------------------------------------------------------------------------------
 // SIMLPLE ND-ARRAY IMPLMENTATION
@@ -215,8 +216,8 @@ Layout** layout_broadcast(const Layout** lays, size_t nlay) {
 // ARRAY CREATION AND DESTRUCTION
 // -------------------------------------------------------------------------------------------------
 
-ArrayMut array_empty(const size_t* shape, size_t ndim) {
-    ArrayMut array = (ArrayMut)alloc(sizeof(NDArray));
+NDArray* array_empty(const size_t* shape, size_t ndim) {
+    NDArray* array = (NDArray*)alloc(sizeof(NDArray));
     array->lay = layout_alloc(ndim);  // contiguous lay
     array->lay->shape = size_t_copy(array->lay->shape, shape, ndim);
     array->lay->stride = compute_stride(array->lay->stride, shape, ndim);
@@ -226,7 +227,7 @@ ArrayMut array_empty(const size_t* shape, size_t ndim) {
     return array;
 }
 
-void array_free(ArrayMut array) {
+void array_free(NDArray* array) {
     assert(array != NULL && "TypeError: array_free on NULL.");
     if (--array->data->refs == 0) {
         free(array->data->mem);
@@ -240,9 +241,9 @@ void array_free(ArrayMut array) {
 // COPY
 // -------------------------------------------------------------------------------------------------
 
-ArrayMut array_shallow_copy(ArrayRef src) {
+NDArray* array_shallow_copy(const NDArray* src) {
     assert(src != NULL && "TypeError: shallow copy of NULL.");
-    ArrayMut dst = (ArrayMut)alloc(sizeof(NDArray));
+    NDArray* dst = (NDArray*)alloc(sizeof(NDArray));
     dst->ptr = src->ptr;
     dst->lay = layout_copy(layout_alloc(src->lay->ndim), src->lay);
     dst->data = src->data;
@@ -251,8 +252,8 @@ ArrayMut array_shallow_copy(ArrayRef src) {
     return dst;
 }
 
-ArrayMut array_deep_copy(ArrayRef src) {
-    ArrayMut dst = array_empty(src->lay->shape, src->lay->ndim);
+NDArray* array_deep_copy(const NDArray* src) {
+    NDArray* dst = array_empty(src->lay->shape, src->lay->ndim);
     size_t size = prod(dst->lay->shape, dst->lay->ndim);
 
 #pragma omp parallel for
@@ -261,9 +262,9 @@ ArrayMut array_deep_copy(ArrayRef src) {
     return dst;
 }
 
-ArrayMut array_as_strided(ArrayRef src, const Layout* lay) {
+NDArray* array_as_strided(const NDArray* src, const Layout* lay) {
     assert(lay->ndim > 0 && "ValueError: ndim must be positive.");
-    ArrayMut dst = (ArrayMut)alloc(sizeof(NDArray));
+    NDArray* dst = (NDArray*)alloc(sizeof(NDArray));
     dst->data = src->data;
     dst->data->refs++;
     dst->view = true;
@@ -278,33 +279,33 @@ ArrayMut array_as_strided(ArrayRef src, const Layout* lay) {
 // INITIALIZATION
 // -------------------------------------------------------------------------------------------------
 
-ArrayMut array_zeros(const size_t* shape, size_t ndim) {
-    ArrayMut array = array_empty(shape, ndim);
+NDArray* array_zeros(const size_t* shape, size_t ndim) {
+    NDArray* array = array_empty(shape, ndim);
     size_t total = prod(shape, ndim);
     memset(array->data->mem, 0, sizeof(f32) * total);
     return array;
 }
 
-ArrayMut array_fill(f32* elems, const size_t* shape, size_t ndim) {
+NDArray* array_fill(f32* elems, const size_t* shape, size_t ndim) {
     size_t total = prod(shape, ndim);
-    ArrayMut array = array_empty(shape, ndim);
+    NDArray* array = array_empty(shape, ndim);
     for (size_t i = 0; i < total; i++)
         array->data->mem[i] = elems[i];
     return array;
 }
 
-ArrayMut array_ones(const size_t* shape, size_t ndim) {
-    ArrayMut array = array_empty(shape, ndim);
+NDArray* array_ones(const size_t* shape, size_t ndim) {
+    NDArray* array = array_empty(shape, ndim);
     size_t total = prod(shape, ndim);
     for (size_t i = 0; i < total; i++)
         array->data->mem[i] = 1.0f;
     return array;
 }
 
-ArrayMut array_arange(f32 start, f32 end, f32 step) {
+NDArray* array_arange(f32 start, f32 end, f32 step) {
     assert(start < end && start >= 0 && "ValueError: invalid array range.");
     size_t total = cdiv((end - start), step);  // [start, end)
-    ArrayMut out_array = array_zeros((size_t[]){total}, 1);
+    NDArray* out_array = array_zeros((size_t[]){total}, 1);
     size_t running = start;
     for (size_t i = 0; i < total; i++) {
         out_array->data->mem[i] = running;
@@ -313,9 +314,9 @@ ArrayMut array_arange(f32 start, f32 end, f32 step) {
     return out_array;
 }
 
-ArrayMut array_linspace(f32 start, f32 end, f32 n) {
+NDArray* array_linspace(f32 start, f32 end, f32 n) {
     f32 dx = (end - start) / (n - 1);
-    ArrayMut out_array = array_arange(0, n, 1);
+    NDArray* out_array = array_arange(0, n, 1);
     for (size_t i = 0; i < out_array->data->size; i++)
         out_array->ptr[i] = start + out_array->ptr[i] * dx;
     return out_array;
@@ -325,11 +326,15 @@ ArrayMut array_linspace(f32 start, f32 end, f32 n) {
 // GETTERS
 // -------------------------------------------------------------------------------------------------
 
-f32 array_get_elem(ArrayRef array, const size_t* index) {
+f32 array_get_elem(const NDArray* array, const size_t* index) {
     return array->ptr[index_flatten(index, array->lay)];
 }
 
-ArrayMut array_get_view(ArrayRef src, const size_t* start, const size_t* end, const size_t* step) {
+NDArray* array_get_view(
+        const NDArray* src,
+        const size_t* start,
+        const size_t* end,
+        const size_t* step) {
     for (size_t i = 0; i < src->lay->ndim; i++) {
         assert(start[i] < end[i] && start[i] >= 0 && "ValueError: invalid start.");
         assert(end[i] <= src->lay->shape[i] && "ValueError: invald end.");
@@ -343,7 +348,7 @@ ArrayMut array_get_view(ArrayRef src, const size_t* start, const size_t* end, co
         offset += start[i] * src->lay->stride[i];
     }
     assert(offset < src->data->size && "ValueError: offset >= size.");
-    ArrayMut dst = array_shallow_copy(src);
+    NDArray* dst = array_shallow_copy(src);
     FREE(dst->lay);
     dst->lay = vlay;
     dst->ptr = src->ptr + offset;
@@ -354,12 +359,12 @@ ArrayMut array_get_view(ArrayRef src, const size_t* start, const size_t* end, co
 // SETTERS
 // -------------------------------------------------------------------------------------------------
 
-ArrayMut array_set_elem_from_scalar(ArrayMut array, f32 value, const size_t* index) {
+NDArray* array_set_elem_from_scalar(NDArray* array, f32 value, const size_t* index) {
     array->ptr[index_flatten(index, array->lay)] = value;
     return array;
 }
-ArrayMut array_set_view_from_scalar(
-        ArrayMut dst,
+NDArray* array_set_view_from_scalar(
+        NDArray* dst,
         f32 value,
         const size_t* start,
         const size_t* end,
@@ -385,9 +390,9 @@ ArrayMut array_set_view_from_scalar(
     return dst;
 }
 
-ArrayMut array_set_view_from_array(
-        ArrayMut dst,
-        ArrayRef src,
+NDArray* array_set_view_from_array(
+        NDArray* dst,
+        const NDArray* src,
         const size_t* start,
         const size_t* end,
         const size_t* step) {
@@ -420,9 +425,9 @@ ArrayMut array_set_view_from_array(
 // RESHAPING
 // -------------------------------------------------------------------------------------------------
 
-ArrayMut array_reshape(ArrayRef src, const size_t* shape, size_t ndim) {
+NDArray* array_reshape(const NDArray* src, const size_t* shape, size_t ndim) {
     assert(prod(shape, ndim) == src->data->size);
-    ArrayMut dst = is_contiguous(src->lay) ? array_shallow_copy(src) : array_deep_copy(src);
+    NDArray* dst = is_contiguous(src->lay) ? array_shallow_copy(src) : array_deep_copy(src);
     FREE(dst->lay);
     dst->lay = layout_alloc(ndim);
     dst->lay->shape = size_t_copy(dst->lay->shape, shape, ndim);
@@ -431,8 +436,8 @@ ArrayMut array_reshape(ArrayRef src, const size_t* shape, size_t ndim) {
     return dst;
 }
 
-ArrayMut array_transpose(ArrayRef src, const size_t* dims) {
-    ArrayMut dst = is_contiguous(src->lay) ? array_shallow_copy(src) : array_deep_copy(src);
+NDArray* array_transpose(const NDArray* src, const size_t* dims) {
+    NDArray* dst = is_contiguous(src->lay) ? array_shallow_copy(src) : array_deep_copy(src);
     size_t ndim = src->lay->ndim;
     Layout* original_layout = layout_copy(layout_alloc(src->lay->ndim), src->lay);
     for (size_t i = 0; i < ndim; i++) {
@@ -443,7 +448,7 @@ ArrayMut array_transpose(ArrayRef src, const size_t* dims) {
     return dst;
 }
 
-ArrayMut array_move_dim(ArrayRef src, const size_t* from, const size_t* to, size_t ndim) {
+NDArray* array_move_dim(const NDArray* src, const size_t* from, const size_t* to, size_t ndim) {
     for (size_t i = 0; i < ndim; i++) {
         assert(from[i] >= 0 && from[i] < src->lay->ndim && "ValueError: out of bounds");
         assert(from[i] >= 0 && from[i] < src->lay->ndim && "ValueError: out of bounds");
@@ -454,15 +459,15 @@ ArrayMut array_move_dim(ArrayRef src, const size_t* from, const size_t* to, size
 
     for (size_t i = 0; i < ndim; i++)
         bucket[from[i]] = 1;  // mark used dimension
-    ArrayMut dst = is_contiguous(src->lay) ? array_shallow_copy(src) : array_deep_copy(src);
+    NDArray* dst = is_contiguous(src->lay) ? array_shallow_copy(src) : array_deep_copy(src);
     size_t to_from[src->lay->ndim];
-    size_t_set(to_from, ITERDIM, src->lay->ndim);
+    size_t_set(to_from, SIZE_MAX, src->lay->ndim);
     for (size_t i = 0; i < ndim; i++)
         to_from[to[i]] = from[i];
 
     size_t j = 0;
     for (size_t i = 0; i < src->lay->ndim; i++) {
-        if (to_from[i] == ITERDIM) {  // free to fill
+        if (to_from[i] == SIZE_MAX) {  // free to fill
             while (j < src->lay->ndim && bucket[j] != 0)
                 j++;  // skip used axes
             to_from[i] = j++;
@@ -476,9 +481,9 @@ ArrayMut array_move_dim(ArrayRef src, const size_t* from, const size_t* to, size
     return dst;
 }
 
-ArrayMut array_ravel(ArrayRef src) {
+NDArray* array_ravel(const NDArray* src) {
     size_t total = prod(src->lay->shape, src->lay->ndim);
-    ArrayMut dst = is_contiguous(src->lay) ? array_shallow_copy(src) : array_deep_copy(src);
+    NDArray* dst = is_contiguous(src->lay) ? array_shallow_copy(src) : array_deep_copy(src);
     FREE(dst->lay);
     dst->lay = layout_alloc(1);
     dst->lay->shape = size_t_set(size_t_alloc(1), total, 1);
@@ -490,8 +495,8 @@ ArrayMut array_ravel(ArrayRef src) {
 // ARRAY-SCALAR OPERATIONS
 // -------------------------------------------------------------------------------------------------
 
-ArrayMut array_scalar_op(binop fn, ArrayRef src, f32 rhs) {
-    ArrayMut dst = array_empty(src->lay->shape, src->lay->ndim);
+NDArray* array_scalar_op(binop fn, const NDArray* src, f32 rhs) {
+    NDArray* dst = array_empty(src->lay->shape, src->lay->ndim);
     size_t size = prod(src->lay->shape, src->lay->ndim);
     // #pragma omp parallel for
     for (size_t i = 0; i < size; i++) {
@@ -502,33 +507,38 @@ ArrayMut array_scalar_op(binop fn, ArrayRef src, f32 rhs) {
     return dst;
 }
 
-ArrayMut array_scalar_sum(ArrayRef src, f32 rhs) { return array_scalar_op(sum32, src, rhs); }
-ArrayMut array_scalar_sub(ArrayRef src, f32 rhs) { return array_scalar_op(sub32, src, rhs); }
-ArrayMut array_scalar_mul(ArrayRef src, f32 rhs) { return array_scalar_op(mul32, src, rhs); }
-ArrayMut array_scalar_div(ArrayRef src, f32 rhs) { return array_scalar_op(div32, src, rhs); }
-ArrayMut array_scalar_mod(ArrayRef src, f32 rhs) { return array_scalar_op(mod32, src, rhs); }
-ArrayMut array_scalar_pow(ArrayRef src, f32 rhs) { return array_scalar_op(pow32, src, rhs); }
-ArrayMut array_scalar_max(ArrayRef src, f32 rhs) { return array_scalar_op(max32, src, rhs); }
-ArrayMut array_scalar_min(ArrayRef src, f32 rhs) { return array_scalar_op(min32, src, rhs); }
-ArrayMut array_scalar_eq(ArrayRef src, f32 rhs) { return array_scalar_op(eq32, src, rhs); }
-ArrayMut array_scalar_ne(ArrayRef src, f32 rhs) { return array_scalar_op(ne32, src, rhs); }
-ArrayMut array_scalar_gt(ArrayRef src, f32 rhs) { return array_scalar_op(gt32, src, rhs); }
-ArrayMut array_scalar_ge(ArrayRef src, f32 rhs) { return array_scalar_op(ge32, src, rhs); }
-ArrayMut array_scalar_lt(ArrayRef src, f32 rhs) { return array_scalar_op(lt32, src, rhs); }
-ArrayMut array_scalar_le(ArrayRef src, f32 rhs) { return array_scalar_op(le32, src, rhs); }
+NDArray* array_scalar_sum(const NDArray* src, f32 rhs) { return array_scalar_op(sum32, src, rhs); }
+NDArray* array_scalar_sub(const NDArray* src, f32 rhs) { return array_scalar_op(sub32, src, rhs); }
+NDArray* array_scalar_mul(const NDArray* src, f32 rhs) { return array_scalar_op(mul32, src, rhs); }
+NDArray* array_scalar_div(const NDArray* src, f32 rhs) { return array_scalar_op(div32, src, rhs); }
+NDArray* array_scalar_mod(const NDArray* src, f32 rhs) { return array_scalar_op(mod32, src, rhs); }
+NDArray* array_scalar_pow(const NDArray* src, f32 rhs) { return array_scalar_op(pow32, src, rhs); }
+NDArray* array_scalar_max(const NDArray* src, f32 rhs) { return array_scalar_op(max32, src, rhs); }
+NDArray* array_scalar_min(const NDArray* src, f32 rhs) { return array_scalar_op(min32, src, rhs); }
+NDArray* array_scalar_eq(const NDArray* src, f32 rhs) { return array_scalar_op(eq32, src, rhs); }
+NDArray* array_scalar_ne(const NDArray* src, f32 rhs) { return array_scalar_op(ne32, src, rhs); }
+NDArray* array_scalar_gt(const NDArray* src, f32 rhs) { return array_scalar_op(gt32, src, rhs); }
+NDArray* array_scalar_ge(const NDArray* src, f32 rhs) { return array_scalar_op(ge32, src, rhs); }
+NDArray* array_scalar_lt(const NDArray* src, f32 rhs) { return array_scalar_op(lt32, src, rhs); }
+NDArray* array_scalar_le(const NDArray* src, f32 rhs) { return array_scalar_op(le32, src, rhs); }
 
 // -------------------------------------------------------------------------------------------------
 // MATMUL
 // -------------------------------------------------------------------------------------------------
 
-ArrayMut array_array_matmul(ArrayRef lhs, ArrayRef rhs) {
+NDArray* array_array_matmul(const NDArray* lhs, const NDArray* rhs) {
     assert(lhs->lay->ndim == 2 && rhs->lay->ndim == 2);
     assert(lhs->lay->shape[1] == rhs->lay->shape[0]);
-    size_t M = lhs->lay->shape[0];
-    size_t N = rhs->lay->shape[1];
-    size_t K = lhs->lay->shape[1];
 
-    ArrayMut out = array_zeros((size_t[]){M, N}, 2);
+    size_t M = lhs->lay->shape[0];
+    size_t K = lhs->lay->shape[1];
+    size_t N = rhs->lay->shape[1];
+
+    if (SIMD_ID != 0 && is_contiguous(lhs->lay) && is_contiguous(rhs->lay) && M % 4 == 0
+        && K % SIMD_WIDTH == 0 && N % SIMD_WIDTH == 0)
+        return SIMD_MATMUL(lhs, rhs);
+
+    NDArray* out = array_zeros((size_t[]){M, N}, 2);
 
     f32* plhs = lhs->ptr;
     f32* prhs = rhs->ptr;
@@ -568,14 +578,14 @@ ArrayMut array_array_matmul(ArrayRef lhs, ArrayRef rhs) {
 // ARRAY-ARRAY OPERATIONS
 // -------------------------------------------------------------------------------------------------
 
-ArrayMut array_array_op(binop fn, ArrayRef lhs, ArrayRef rhs) {
+NDArray* array_array_op(binop fn, const NDArray* lhs, const NDArray* rhs) {
     assert(is_broadcastable(lhs->lay, rhs->lay) && "ValueError: can not broadcast.");
     const Layout* lays[2] = {lhs->lay, rhs->lay};
     Layout** blays = layout_broadcast(lays, 2);
     Layout* lhs_blay = blays[0];
     Layout* rhs_blay = blays[1];
     size_t size = prod(lhs_blay->shape, lhs_blay->ndim);
-    ArrayMut out = array_empty(lhs_blay->shape, lhs_blay->ndim);
+    NDArray* out = array_empty(lhs_blay->shape, lhs_blay->ndim);
 
 #pragma omp parallel for
     for (size_t i = 0; i < size; i++) {
@@ -590,27 +600,55 @@ ArrayMut array_array_op(binop fn, ArrayRef lhs, ArrayRef rhs) {
     return out;
 }
 
-ArrayMut array_array_sum(ArrayRef lhs, ArrayRef rhs) { return array_array_op(sum32, lhs, rhs); }
-ArrayMut array_array_sub(ArrayRef lhs, ArrayRef rhs) { return array_array_op(sub32, lhs, rhs); }
-ArrayMut array_array_mul(ArrayRef lhs, ArrayRef rhs) { return array_array_op(mul32, lhs, rhs); }
-ArrayMut array_array_div(ArrayRef lhs, ArrayRef rhs) { return array_array_op(div32, lhs, rhs); }
-ArrayMut array_array_mod(ArrayRef lhs, ArrayRef rhs) { return array_array_op(mod32, lhs, rhs); }
-ArrayMut array_array_pow(ArrayRef lhs, ArrayRef rhs) { return array_array_op(pow32, lhs, rhs); }
-ArrayMut array_array_max(ArrayRef lhs, ArrayRef rhs) { return array_array_op(max32, lhs, rhs); }
-ArrayMut array_array_min(ArrayRef lhs, ArrayRef rhs) { return array_array_op(min32, lhs, rhs); }
-ArrayMut array_array_eq(ArrayRef lhs, ArrayRef rhs) { return array_array_op(eq32, lhs, rhs); }
-ArrayMut array_array_ne(ArrayRef lhs, ArrayRef rhs) { return array_array_op(ne32, lhs, rhs); }
-ArrayMut array_array_gt(ArrayRef lhs, ArrayRef rhs) { return array_array_op(gt32, lhs, rhs); }
-ArrayMut array_array_ge(ArrayRef lhs, ArrayRef rhs) { return array_array_op(ge32, lhs, rhs); }
-ArrayMut array_array_lt(ArrayRef lhs, ArrayRef rhs) { return array_array_op(lt32, lhs, rhs); }
-ArrayMut array_array_le(ArrayRef lhs, ArrayRef rhs) { return array_array_op(le32, lhs, rhs); }
+NDArray* array_array_sum(const NDArray* lhs, const NDArray* rhs) {
+    return array_array_op(sum32, lhs, rhs);
+}
+NDArray* array_array_sub(const NDArray* lhs, const NDArray* rhs) {
+    return array_array_op(sub32, lhs, rhs);
+}
+NDArray* array_array_mul(const NDArray* lhs, const NDArray* rhs) {
+    return array_array_op(mul32, lhs, rhs);
+}
+NDArray* array_array_div(const NDArray* lhs, const NDArray* rhs) {
+    return array_array_op(div32, lhs, rhs);
+}
+NDArray* array_array_mod(const NDArray* lhs, const NDArray* rhs) {
+    return array_array_op(mod32, lhs, rhs);
+}
+NDArray* array_array_pow(const NDArray* lhs, const NDArray* rhs) {
+    return array_array_op(pow32, lhs, rhs);
+}
+NDArray* array_array_max(const NDArray* lhs, const NDArray* rhs) {
+    return array_array_op(max32, lhs, rhs);
+}
+NDArray* array_array_min(const NDArray* lhs, const NDArray* rhs) {
+    return array_array_op(min32, lhs, rhs);
+}
+NDArray* array_array_eq(const NDArray* lhs, const NDArray* rhs) {
+    return array_array_op(eq32, lhs, rhs);
+}
+NDArray* array_array_ne(const NDArray* lhs, const NDArray* rhs) {
+    return array_array_op(ne32, lhs, rhs);
+}
+NDArray* array_array_gt(const NDArray* lhs, const NDArray* rhs) {
+    return array_array_op(gt32, lhs, rhs);
+}
+NDArray* array_array_ge(const NDArray* lhs, const NDArray* rhs) {
+    return array_array_op(ge32, lhs, rhs);
+}
+NDArray* array_array_lt(const NDArray* lhs, const NDArray* rhs) {
+    return array_array_op(lt32, lhs, rhs);
+}
+NDArray* array_array_le(const NDArray* lhs, const NDArray* rhs) {
+    return array_array_op(le32, lhs, rhs);
+}
 
 // -------------------------------------------------------------------------------------------------
 // ELEMENTWISE OPERATIONS
 // -------------------------------------------------------------------------------------------------
 
-ArrayMut array_op(uniop fn, ArrayRef src) {
-    ArrayMut dst = array_empty(src->lay->shape, src->lay->ndim);
+NDArray* array_op(uniop fn, const NDArray* src) {
+    NDArray* dst = array_empty(src->lay->shape, src->lay->ndim);
     size_t size = prod(src->lay->shape, src->lay->ndim);
 #pragma omp parallel for
     for (size_t i = 0; i < size; i++)
@@ -618,31 +656,31 @@ ArrayMut array_op(uniop fn, ArrayRef src) {
     return dst;
 }
 
-ArrayMut array_neg(ArrayRef src) { return array_op(neg32, src); }
-ArrayMut array_abs(ArrayRef src) { return array_op(abs32, src); }
-ArrayMut array_sqrt(ArrayRef src) { return array_op(sqrt32, src); }
-ArrayMut array_exp(ArrayRef src) { return array_op(exp32, src); }
-ArrayMut array_log(ArrayRef src) { return array_op(log32, src); }
-ArrayMut array_sin(ArrayRef src) { return array_op(sin32, src); }
-ArrayMut array_cos(ArrayRef src) { return array_op(cos32, src); }
-ArrayMut array_tan(ArrayRef src) { return array_op(tan32, src); }
-ArrayMut array_asin(ArrayRef src) { return array_op(asin32, src); }
-ArrayMut array_acos(ArrayRef src) { return array_op(acos32, src); }
-ArrayMut array_atan(ArrayRef src) { return array_op(atan32, src); }
-ArrayMut array_sinh(ArrayRef src) { return array_op(sinh32, src); }
-ArrayMut array_cosh(ArrayRef src) { return array_op(cosh32, src); }
-ArrayMut array_tanh(ArrayRef src) { return array_op(tanh32, src); }
-ArrayMut array_asinh(ArrayRef src) { return array_op(asinh32, src); }
-ArrayMut array_acosh(ArrayRef src) { return array_op(acosh32, src); }
-ArrayMut array_atanh(ArrayRef src) { return array_op(atanh32, src); }
-ArrayMut array_ceil(ArrayRef src) { return array_op(ceil32, src); }
-ArrayMut array_floor(ArrayRef src) { return array_op(floor32, src); }
+NDArray* array_neg(const NDArray* src) { return array_op(neg32, src); }
+NDArray* array_abs(const NDArray* src) { return array_op(abs32, src); }
+NDArray* array_sqrt(const NDArray* src) { return array_op(sqrt32, src); }
+NDArray* array_exp(const NDArray* src) { return array_op(exp32, src); }
+NDArray* array_log(const NDArray* src) { return array_op(log32, src); }
+NDArray* array_sin(const NDArray* src) { return array_op(sin32, src); }
+NDArray* array_cos(const NDArray* src) { return array_op(cos32, src); }
+NDArray* array_tan(const NDArray* src) { return array_op(tan32, src); }
+NDArray* array_asin(const NDArray* src) { return array_op(asin32, src); }
+NDArray* array_acos(const NDArray* src) { return array_op(acos32, src); }
+NDArray* array_atan(const NDArray* src) { return array_op(atan32, src); }
+NDArray* array_sinh(const NDArray* src) { return array_op(sinh32, src); }
+NDArray* array_cosh(const NDArray* src) { return array_op(cosh32, src); }
+NDArray* array_tanh(const NDArray* src) { return array_op(tanh32, src); }
+NDArray* array_asinh(const NDArray* src) { return array_op(asinh32, src); }
+NDArray* array_acosh(const NDArray* src) { return array_op(acosh32, src); }
+NDArray* array_atanh(const NDArray* src) { return array_op(atanh32, src); }
+NDArray* array_ceil(const NDArray* src) { return array_op(ceil32, src); }
+NDArray* array_floor(const NDArray* src) { return array_op(floor32, src); }
 
 // -------------------------------------------------------------------------------------------------
 // REDUCTION OPERATIONS
 // -------------------------------------------------------------------------------------------------
 
-ArrayMut array_array_dot(ArrayRef lhs, ArrayRef rhs) {
+NDArray* array_array_dot(const NDArray* lhs, const NDArray* rhs) {
     assert(lhs->lay->ndim == 1 && "ValueError: lhs dimension != 1 for dot.");
     assert(rhs->lay->ndim == 1 && "ValueError: rhs dimension != 1 for dot.");
     assert(lhs->lay->shape[0] == rhs->lay->shape[0] && "ValueError: dot shape mismatch.");
@@ -656,14 +694,14 @@ ArrayMut array_array_dot(ArrayRef lhs, ArrayRef rhs) {
         acc += (lval * rval);
     }
 
-    ArrayMut out = array_empty((size_t[]){1}, 1);
+    NDArray* out = array_empty((size_t[]){1}, 1);
     out->ptr[0] = acc;
     return out;
 }
 
-ArrayMut array_reduce(
+NDArray* array_reduce(
         binop acc_fn,
-        ArrayRef src,
+        const NDArray* src,
         const size_t* reduce_dims,
         size_t reduce_ndim,
         f32 acc_init) {
@@ -680,7 +718,7 @@ ArrayMut array_reduce(
     for (size_t i = 0; i < src->lay->ndim; i++)
         dst_shape[i] = is_reduce_dim[i] ? 1 : src->lay->shape[i];
 
-    ArrayMut dst = array_empty(dst_shape, src->lay->ndim);
+    NDArray* dst = array_empty(dst_shape, src->lay->ndim);
 
     // NOTE: moving from src offset to dst offset simply zeros-out
     // any movement along reduced axes by setting stride=0.
@@ -729,15 +767,15 @@ ArrayMut array_reduce(
     return dst;
 }
 
-ArrayMut array_reduce_sum(ArrayRef src, const size_t* reduce_dims, size_t reduce_ndim) {
+NDArray* array_reduce_sum(const NDArray* src, const size_t* reduce_dims, size_t reduce_ndim) {
     return array_reduce(sum32, src, reduce_dims, reduce_ndim, 0.0f);
 }
 
-ArrayMut array_reduce_max(ArrayRef src, const size_t* reduce_dims, size_t reduce_ndim) {
+NDArray* array_reduce_max(const NDArray* src, const size_t* reduce_dims, size_t reduce_ndim) {
     return array_reduce(max32, src, reduce_dims, reduce_ndim, -INFINITY);
 }
 
-ArrayMut array_reduce_min(ArrayRef src, const size_t* reduce_dims, size_t reduce_ndim) {
+NDArray* array_reduce_min(const NDArray* src, const size_t* reduce_dims, size_t reduce_ndim) {
     return array_reduce(min32, src, reduce_dims, reduce_ndim, INFINITY);
 }
 
@@ -745,13 +783,13 @@ ArrayMut array_reduce_min(ArrayRef src, const size_t* reduce_dims, size_t reduce
 // CONDITIONAL OPERATIONS
 // -------------------------------------------------------------------------------------------------
 
-ArrayMut array_array_array_where(ArrayRef cond, ArrayRef lhs, ArrayRef rhs) {
+NDArray* array_array_array_where(const NDArray* cond, const NDArray* lhs, const NDArray* rhs) {
     assert(cond->lay->ndim == lhs->lay->ndim && lhs->lay->ndim && rhs->lay->ndim);
     for (size_t i = 0; i < lhs->lay->ndim; i++)
         assert(cond->lay->shape[i] == lhs->lay->shape[i]
                && lhs->lay->shape[i] == rhs->lay->shape[i]);
 
-    ArrayMut dst = array_empty(cond->lay->shape, cond->lay->ndim);
+    NDArray* dst = array_empty(cond->lay->shape, cond->lay->ndim);
     size_t size = prod(cond->lay->shape, cond->lay->ndim);
 
 #pragma omp parallel for
@@ -765,12 +803,12 @@ ArrayMut array_array_array_where(ArrayRef cond, ArrayRef lhs, ArrayRef rhs) {
     return dst;
 }
 
-ArrayMut array_array_scalar_where(ArrayRef cond, ArrayRef lhs, f32 rhs) {
+NDArray* array_array_scalar_where(const NDArray* cond, const NDArray* lhs, f32 rhs) {
     assert(cond->lay->ndim == lhs->lay->ndim && lhs->lay->ndim);
     for (size_t i = 0; i < lhs->lay->ndim; i++)
         assert(cond->lay->shape[i] == lhs->lay->shape[i]);
 
-    ArrayMut dst = array_empty(lhs->lay->shape, lhs->lay->ndim);
+    NDArray* dst = array_empty(lhs->lay->shape, lhs->lay->ndim);
     size_t size = prod(cond->lay->shape, cond->lay->ndim);
 
 #pragma omp parallel for
@@ -783,12 +821,12 @@ ArrayMut array_array_scalar_where(ArrayRef cond, ArrayRef lhs, f32 rhs) {
     return dst;
 }
 
-ArrayMut array_scalar_array_where(ArrayRef cond, f32 lhs, ArrayRef rhs) {
+NDArray* array_scalar_array_where(const NDArray* cond, f32 lhs, const NDArray* rhs) {
     assert(cond->lay->ndim && rhs->lay->ndim);
     for (size_t i = 0; i < rhs->lay->ndim; i++)
         assert(cond->lay->shape[i] == rhs->lay->shape[i]);
 
-    ArrayMut dst = array_empty(rhs->lay->shape, rhs->lay->ndim);
+    NDArray* dst = array_empty(rhs->lay->shape, rhs->lay->ndim);
     size_t size = prod(cond->lay->shape, cond->lay->ndim);
 
 #pragma omp parallel for
@@ -800,8 +838,8 @@ ArrayMut array_scalar_array_where(ArrayRef cond, f32 lhs, ArrayRef rhs) {
     return dst;
 }
 
-ArrayMut array_scalar_scalar_where(ArrayRef cond, f32 lhs, f32 rhs) {
-    ArrayMut dst = array_empty(cond->lay->shape, cond->lay->ndim);
+NDArray* array_scalar_scalar_where(const NDArray* cond, f32 lhs, f32 rhs) {
+    NDArray* dst = array_empty(cond->lay->shape, cond->lay->ndim);
     size_t size = prod(cond->lay->shape, cond->lay->ndim);
 
 #pragma omp parallel for

@@ -32,3 +32,4 @@ c = al.arange(1, 11).as_strided(shape=(8, 3), stride=(1, 1)).reduce_sum(dims=[0]
 ```
 
 NOTE: `omp` is supported if compiled with the appropriate flags (e.g. `-fopenmp`)
+NOTE: partial SIMD (`neon`) support if compiled with the appropriate flags  (e.g. `-mfpu=neon`)
